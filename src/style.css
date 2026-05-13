@@ -465,4 +465,52 @@ button{min-height:42px}
   aside{padding-top:calc(10px + env(safe-area-inset-top))!important;}
   main{padding-bottom:calc(14px + env(safe-area-inset-bottom))!important;}
 }
+@media (max-width: 768px) {
+  .modal {
+    align-items: flex-start !important;
+    padding: 12px !important;
+    overflow-y: auto !important;
+    z-index: 9999 !important;
+  }
 
+  .modal-card {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 12px auto 32px !important;
+    border-radius: 22px !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .modal-head {
+    position: sticky !important;
+    top: 0 !important;
+    background: #fff !important;
+    z-index: 10 !important;
+    padding: 14px 0 !important;
+    border-bottom: 1px solid #e5e7eb !important;
+  }
+
+  main > header {
+    position: static !important;
+    z-index: 1 !important;
+  }
+
+  .modal input,
+  .modal select,
+  .modal textarea {
+    font-size: 16px !important;
+    width: 100% !important;
+  }
+
+  .modal-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .modal .primary.full {
+    width: 100% !important;
+    position: sticky !important;
+    bottom: 12px !important;
+    z-index: 10 !important;
+  }
+}
