@@ -1,1 +1,42 @@
-<!doctype html><html lang="vi"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>AKC CRM v8 Supabase Cloud</title></head><body><div id="root"></div><script type="module" src="/src/App.jsx"></script></body></html>
+<!doctype html>
+<html lang="vi">
+
+<head>
+  <meta charset="UTF-8" />
+
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1, viewport-fit=cover" />
+
+  <title>AKC CRM V8 Supabase Cloud</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="/manifest.webmanifest" />
+
+  <meta name="theme-color" content="#111827" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="AKC CRM" />
+  <meta name="apple-mobile-web-app-status-bar-style"
+    content="black-translucent" />
+</head>
+
+<body>
+
+  <div id="root"></div>
+
+  <script type="module" src="/src/App.jsx"></script>
+
+  <!-- Service Worker -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker
+          .register('/sw.js')
+          .catch(function () { });
+      });
+    }
+  </script>
+
+</body>
+
+</html>
