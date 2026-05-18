@@ -638,3 +638,62 @@ header>div:last-child button,.primary{font-weight:800!important}.reset-password-
   .show-actions button{flex:1}
 }
 
+/* AKC PT Teaching Show / Approval / Kiot Invoice */
+.pt-show-panel .chart-head{align-items:flex-start}
+.pt-flow{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:#f8fafc;border:1px solid #dbe5f2;border-radius:18px;padding:12px 14px;margin:12px 0 16px}
+.pt-flow span{background:#fff;border:1px solid #dbe5f2;border-radius:999px;padding:8px 12px;color:#0f172a;font-weight:700}
+.pt-flow b{color:#64748b}
+.pt-show-table td{vertical-align:top}
+.show-status{display:inline-block;border-radius:999px;padding:7px 10px;font-weight:800;font-size:13px;background:#f1f5f9;color:#334155;border:1px solid #dbe5f2}
+.show-status.registered{background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe}
+.show-status.completed_pending_approval{background:#fff7ed;color:#c2410c;border-color:#fed7aa}
+.show-status.approved{background:#dcfce7;color:#166534;border-color:#bbf7d0}
+.show-status.rejected{background:#fff1f2;color:#dc2626;border-color:#fecdd3}
+.show-status.kiot_invoice_created{background:#ecfdf5;color:#047857;border-color:#a7f3d0}
+.show-status.kiot_invoice_error{background:#fef2f2;color:#b91c1c;border-color:#fecaca}
+.show-actions{display:flex;gap:7px;flex-wrap:wrap}
+.show-actions button{padding:8px 10px!important;font-size:13px!important}
+.pt-show-modal{max-width:860px!important}
+.pt-show-modal textarea{min-height:110px!important}
+@media(max-width:768px){
+  .pt-flow{gap:6px;padding:10px}
+  .pt-flow span{font-size:13px;padding:7px 9px}
+  .pt-show-table table,.pt-show-table thead,.pt-show-table tbody,.pt-show-table tr,.pt-show-table th,.pt-show-table td{display:block;width:100%}
+  .pt-show-table thead{display:none}
+  .pt-show-table tr{background:#fff;border:1px solid #dbe5f2;border-radius:18px;margin:12px 0;padding:12px;box-shadow:0 8px 20px rgba(15,23,42,.06)}
+  .pt-show-table td{border:0!important;padding:6px 0!important}
+  .pt-show-table td:nth-child(1)::before{content:"Khách/PT: ";font-weight:800}
+  .pt-show-table td:nth-child(2)::before{content:"Ngày giờ: ";font-weight:800}
+  .pt-show-table td:nth-child(3)::before{content:"Cơ sở: ";font-weight:800}
+  .pt-show-table td:nth-child(4)::before{content:"Dịch vụ: ";font-weight:800}
+  .pt-show-table td:nth-child(5)::before{content:"Giá: ";font-weight:800}
+  .pt-show-table td:nth-child(6)::before{content:"Trạng thái: ";font-weight:800}
+  .pt-show-table td:nth-child(7)::before{content:"Kiot: ";font-weight:800}
+  .show-actions button{flex:1}
+}
+
+
+/* PT Show form v2: required Kiot fields + mobile optimization */
+.pt-show-overlay{align-items:flex-start!important;padding:28px 14px!important;overflow:auto!important}
+.pt-show-form-v2{max-width:900px!important;background:#fff!important;border-radius:24px!important;box-shadow:0 25px 80px rgba(15,23,42,.25)!important}
+.pt-show-form-v2 .modal-head.no-close{display:flex!important;justify-content:space-between!important;align-items:flex-start!important;border-bottom:1px solid #dbe5f2!important;margin-bottom:16px!important;padding-bottom:14px!important}
+.pt-show-form-v2 .modal-head.no-close h3{margin:0!important;font-size:22px!important}
+.pt-show-form-v2 .modal-head.no-close p{margin:6px 0 0!important;color:#64748b!important;font-size:13px!important}
+.pt-show-form-v2 label b{color:#ef233c!important}
+.pt-show-form-v2 label span{font-weight:500!important;color:#94a3b8!important}
+.show-code-box{background:#f8fafc;border:1px solid #dbe5f2;border-radius:18px;padding:12px 14px;margin-bottom:14px}
+.show-code-box label{margin:0!important}.show-code-box small{display:block;margin-top:6px;color:#64748b}
+.pt-show-form-v2 input,.pt-show-form-v2 select,.pt-show-form-v2 textarea{border-radius:14px!important;min-height:44px!important}
+.pt-show-form-v2 textarea{min-height:92px!important}
+@media(max-width:768px){
+  .pt-show-overlay{padding:10px!important;align-items:flex-start!important}
+  .pt-show-form-v2{width:100%!important;max-width:100%!important;margin:8px 0 28px!important;border-radius:20px!important;padding:18px!important;max-height:none!important;overflow:visible!important}
+  .pt-show-form-v2 .modal-head.no-close{position:sticky!important;top:0!important;background:#fff!important;z-index:5!important;padding:4px 0 12px!important}
+  .pt-show-form-v2 .modal-head.no-close h3{font-size:20px!important}
+  .pt-show-form-v2 .modal-grid{grid-template-columns:1fr!important;gap:10px!important}
+  .pt-show-form-v2 label{font-size:13px!important;gap:6px!important}
+  .pt-show-form-v2 input,.pt-show-form-v2 select,.pt-show-form-v2 textarea{font-size:16px!important;min-height:46px!important;padding:10px 12px!important}
+  .show-code-box{padding:10px 12px!important;border-radius:16px!important}
+  .pt-show-form-v2 .primary.full{position:sticky!important;bottom:10px!important;z-index:6!important;box-shadow:0 12px 30px rgba(239,35,60,.28)!important}
+}
+
