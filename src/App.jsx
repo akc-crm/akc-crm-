@@ -238,15 +238,11 @@ function PtShowModal({initial,branches,users,profile,onClose,onSave}){
  const[svcResults,setSvcResults]=useState([]);
  const[svcLoading,setSvcLoading]=useState(false);
  const[svcOpen,setSvcOpen]=useState(false);
- const[empResults,setEmpResults]=useState([]);
  const[empLoading,setEmpLoading]=useState(false);
- const[empOpen,setEmpOpen]=useState(false);
- const[empName,setEmpName]=useState(initial.kiot_employee_name||'');
  const[kiotBranches,setKiotBranches]=useState([]);
  const[branchLoading,setBranchLoading]=useState(false);
  const custTimer=useRef(null);
  const svcTimer=useRef(null);
- const empTimer=useRef(null);
  // Load Kiot branches on mount
  useEffect(()=>{
   setBranchLoading(true);
@@ -273,26 +269,7 @@ function PtShowModal({initial,branches,users,profile,onClose,onSave}){
   setF(prev=>({...prev,customer_name:c.name,kiot_customer_id:c.code}));
   setCustOpen(false);setCustResults([]);
  }
- // Debounced Kiot employee search
- function searchEmployee(q){
-  setEmpName(q);
-  if(empTimer.current)clearTimeout(empTimer.current);
-  if(!q||q.length<2){setEmpResults([]);setEmpOpen(false);return;}
-  setEmpLoading(true);
-  empTimer.current=setTimeout(async()=>{
-   try{
-    const resp=await fetch('/api/show/kiot-search?type=employee&q='+encodeURIComponent(q));
-    const data=await resp.json();
-    if(data.success){setEmpResults(data.results||[]);setEmpOpen(true);}
-   }catch(e){console.error('Kiot employee search error',e)}
-   setEmpLoading(false);
-  },500);
- }
- function selectEmployee(emp){
-  setF(prev=>({...prev,kiot_employee_id:emp.code,kiot_employee_name:emp.name}));
-  setEmpName(emp.name);
-  setEmpOpen(false);setEmpResults([]);
- }
+
  // Debounced Kiot service search
  function searchService(q){
   setF(prev=>({...prev,service_product_name:q}));
@@ -312,7 +289,22 @@ function PtShowModal({initial,branches,users,profile,onClose,onSave}){
   setF(prev=>({...prev,service_product_id:s.code,service_product_name:s.name,price:s.price||prev.price}));
   setSvcOpen(false);setSvcResults([]);
  }
- function changePT(id){const pt=pts.find(u=>u.id===id)||profile;setF({...f,pt_id:id,kiot_employee_id:pt.kiot_employee_id||f.kiot_employee_id||'',branch_id:profile.role==='admin'?(pt.branch_id||f.branch_id):f.branch_id});}
+ function changePT(id){
+  const pt=pts.find(u=>u.id===id)||profile;
+  setF(prev=>({...prev,pt_id:id,kiot_employee_id:pt.kiot_employee_id||prev.kiot_employee_id||'',branch_id:profile.role==='admin'?(pt.branch_id||prev.branch_id):prev.branch_id}));
+  // Auto-search Kiot employee by PT name
+  const ptName=pt.full_name||pt.email||'';
+  if(ptName.length>=2){
+   setEmpLoading(true);
+   fetch('/api/show/kiot-search?type=employee&q='+encodeURIComponent(ptName))
+    .then(r=>r.json()).then(data=>{
+     if(data.success&&data.results.length>0){
+      const match=data.results[0];
+      setF(prev=>({...prev,kiot_employee_id:match.code}));
+     }
+    }).catch(()=>{}).finally(()=>setEmpLoading(false));
+  }
+ }
  function changeServiceId(v){const presets={PT001:'Buổi PT cá nhân',PTSHOW:'Buổi PT / Teaching show',GROUPPT:'Buổi PT nhóm'};setF({...f,service_product_id:v,service_product_name:f.service_product_name||presets[String(v).toUpperCase()]||''});}
  function submit(e){e.preventDefault();
   if(!String(f.customer_name||'').trim())return alert('Tên khách hàng là bắt buộc.');
@@ -326,7 +318,7 @@ function PtShowModal({initial,branches,users,profile,onClose,onSave}){
   if(Number(f.price)<0||f.price==='')return alert('Giá không được để trống (nhập 0 nếu đã thu tiền trước).');
   onSave({...f,show_status:f.show_status||'registered'});
  }
- return <div className='modal pt-show-overlay' onMouseDown={onClose}><form className='modal-card pt-show-modal pt-show-form-v2' onMouseDown={e=>e.stopPropagation()} onSubmit={submit}><div className='modal-head no-close'><div><h3>{f.id?'Sửa show PT':'Đăng ký show PT'}</h3><p>Click ra vùng tối bên ngoài để đóng form.</p></div></div><div className='show-code-box'><label>Mã show CRM / show_id<input value={f.show_crm_code||''} onChange={e=>set('show_crm_code',e.target.value)} required/></label><small>Mã này dùng để n8n/Telegram/Kiot đối soát đúng hồ sơ show.</small></div><div className='modal-grid'><label className='kiot-autocomplete'>Tên khách hàng <b>*</b><input value={f.customer_name||''} onChange={e=>searchCustomer(e.target.value)} onFocus={()=>{if(custResults.length)setCustOpen(true)}} onBlur={()=>setTimeout(()=>setCustOpen(false),200)} required placeholder='Nhập tên/SĐT để tìm KH Kiot' autoComplete='off'/>{custLoading&&<small className='kiot-loading'>Đang tìm...</small>}{custOpen&&custResults.length>0&&<ul className='kiot-dropdown'>{custResults.map(c=><li key={c.id} onMouseDown={()=>selectCustomer(c)}><b>{c.name}</b><span>{c.code}{c.phone?' · '+c.phone:''}</span></li>)}</ul>}</label><label>Mã KH Kiot <b>*</b><input value={f.kiot_customer_id||''} onChange={e=>set('kiot_customer_id',e.target.value)} required placeholder='Tự fill khi chọn KH'/></label><label>PT phụ trách (CRM)<select disabled={profile.role==='pt'} value={f.pt_id||''} onChange={e=>changePT(e.target.value)}>{pts.map(u=><option key={u.id} value={u.id}>{u.full_name||u.email}</option>)}</select></label><label className='kiot-autocomplete'>Nhân viên Kiot <b>*</b><input value={empName} onChange={e=>searchEmployee(e.target.value)} onFocus={()=>{if(empResults.length)setEmpOpen(true)}} onBlur={()=>setTimeout(()=>setEmpOpen(false),200)} required placeholder='Nhập tên NV để tìm trên Kiot' autoComplete='off'/>{empLoading&&<small className='kiot-loading'>Đang tìm...</small>}{empOpen&&empResults.length>0&&<ul className='kiot-dropdown'>{empResults.map(emp=><li key={emp.id} onMouseDown={()=>selectEmployee(emp)}><b>{emp.name}</b><span>{emp.code}</span></li>)}</ul>}</label><label>Mã NV Kiot <b>*</b><input value={f.kiot_employee_id||''} onChange={e=>set('kiot_employee_id',e.target.value)} required placeholder='Tự fill khi chọn NV'/></label><label>Cơ sở Kiot <b>*</b><select value={f.kiot_branch_id||''} onChange={e=>{const kb=kiotBranches.find(b=>String(b.id)===e.target.value);setF(prev=>({...prev,kiot_branch_id:e.target.value,branch_name:kb?kb.name:prev.branch_name}))}} required>{!f.kiot_branch_id&&<option value=''>-- Chọn cơ sở Kiot --</option>}{kiotBranches.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select></label><label>Ngày dạy <b>*</b><input type='date' value={f.show_date||today()} onChange={e=>set('show_date',e.target.value)} required/></label><label>Giờ bắt đầu <b>*</b><input type='time' value={f.start_time||''} onChange={e=>set('start_time',e.target.value)} required/></label><label>Giờ kết thúc <b>*</b><input type='time' value={f.end_time||''} onChange={e=>set('end_time',e.target.value)} required/></label><label className='kiot-autocomplete'>Gói/dịch vụ Kiot <b>*</b><input value={f.service_product_name||''} onChange={e=>searchService(e.target.value)} onFocus={()=>{if(svcResults.length)setSvcOpen(true)}} onBlur={()=>setTimeout(()=>setSvcOpen(false),200)} required placeholder='Nhập tên dịch vụ (VD: Cá nhân 250k)' autoComplete='off'/>{svcLoading&&<small className='kiot-loading'>Đang tìm...</small>}{svcOpen&&svcResults.length>0&&<ul className='kiot-dropdown'>{svcResults.map(s=><li key={s.id} onMouseDown={()=>selectService(s)}><b>{s.name}</b><span>{s.code} · {money(s.price)}</span></li>)}</ul>}</label><label>Mã dịch vụ Kiot <b>*</b><input value={f.service_product_id||''} onChange={e=>changeServiceId(e.target.value)} required placeholder='Tự fill khi chọn DV'/></label><label>Giá <b>*</b><input type='number' min='0' value={f.price===0?'0':(f.price||'')} onChange={e=>set('price',e.target.value)} required placeholder='0 nếu đã thu tiền trước'/></label>{isApprover&&<label>Trạng thái<select value={f.show_status||'registered'} onChange={e=>set('show_status',e.target.value)}><option value='registered'>Đã đăng ký</option><option value='completed_pending_approval'>Chờ duyệt</option><option value='approved'>Đã duyệt</option><option value='rejected'>Từ chối</option></select></label>}</div><label>Ghi chú <span>optional</span><textarea value={f.description||''} onChange={e=>set('description',e.target.value)} placeholder='Nội dung show, tình trạng KH, ghi chú duyệt...'/></label><button className='primary full'>Lưu show PT</button></form></div>
+ return <div className='modal pt-show-overlay' onMouseDown={onClose}><form className='modal-card pt-show-modal pt-show-form-v2' onMouseDown={e=>e.stopPropagation()} onSubmit={submit}><div className='modal-head no-close'><div><h3>{f.id?'Sửa show PT':'Đăng ký show PT'}</h3><p>Click ra vùng tối bên ngoài để đóng form.</p></div></div><div className='show-code-box'><label>Mã show CRM / show_id<input value={f.show_crm_code||''} onChange={e=>set('show_crm_code',e.target.value)} required/></label><small>Mã này dùng để n8n/Telegram/Kiot đối soát đúng hồ sơ show.</small></div><div className='modal-grid'><label className='kiot-autocomplete'>Tên khách hàng <b>*</b><input value={f.customer_name||''} onChange={e=>searchCustomer(e.target.value)} onFocus={()=>{if(custResults.length)setCustOpen(true)}} onBlur={()=>setTimeout(()=>setCustOpen(false),200)} required placeholder='Nhập tên/SĐT để tìm KH Kiot' autoComplete='off'/>{custLoading&&<small className='kiot-loading'>Đang tìm...</small>}{custOpen&&custResults.length>0&&<ul className='kiot-dropdown'>{custResults.map(c=><li key={c.id} onMouseDown={()=>selectCustomer(c)}><b>{c.name}</b><span>{c.code}{c.phone?' · '+c.phone:''}</span></li>)}</ul>}</label><label>Mã KH Kiot <b>*</b><input value={f.kiot_customer_id||''} onChange={e=>set('kiot_customer_id',e.target.value)} required placeholder='Tự fill khi chọn KH'/></label><label>PT phụ trách <b>*</b><select disabled={profile.role==='pt'} value={f.pt_id||''} onChange={e=>changePT(e.target.value)} required>{pts.map(u=><option key={u.id} value={u.id}>{u.full_name||u.email}</option>)}</select></label><label>Mã NV Kiot <b>*</b>{empLoading&&<small className='kiot-loading'>Đang tìm...</small>}<input value={f.kiot_employee_id||''} onChange={e=>set('kiot_employee_id',e.target.value)} required placeholder='Tự fill khi chọn PT'/></label><label>Cơ sở Kiot <b>*</b><select value={f.kiot_branch_id||''} onChange={e=>{const kb=kiotBranches.find(b=>String(b.id)===e.target.value);setF(prev=>({...prev,kiot_branch_id:e.target.value,branch_name:kb?kb.name:prev.branch_name}))}} required>{!f.kiot_branch_id&&<option value=''>-- Chọn cơ sở Kiot --</option>}{kiotBranches.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select></label><label>Ngày dạy <b>*</b><input type='date' value={f.show_date||today()} onChange={e=>set('show_date',e.target.value)} required/></label><label>Giờ bắt đầu <b>*</b><input type='time' value={f.start_time||''} onChange={e=>set('start_time',e.target.value)} required/></label><label>Giờ kết thúc <b>*</b><input type='time' value={f.end_time||''} onChange={e=>set('end_time',e.target.value)} required/></label><label className='kiot-autocomplete'>Gói/dịch vụ Kiot <b>*</b><input value={f.service_product_name||''} onChange={e=>searchService(e.target.value)} onFocus={()=>{if(svcResults.length)setSvcOpen(true)}} onBlur={()=>setTimeout(()=>setSvcOpen(false),200)} required placeholder='Nhập tên dịch vụ (VD: Cá nhân 250k)' autoComplete='off'/>{svcLoading&&<small className='kiot-loading'>Đang tìm...</small>}{svcOpen&&svcResults.length>0&&<ul className='kiot-dropdown'>{svcResults.map(s=><li key={s.id} onMouseDown={()=>selectService(s)}><b>{s.name}</b><span>{s.code} · {money(s.price)}</span></li>)}</ul>}</label><label>Mã dịch vụ Kiot <b>*</b><input value={f.service_product_id||''} onChange={e=>changeServiceId(e.target.value)} required placeholder='Tự fill khi chọn DV'/></label><label>Giá <b>*</b><input type='number' min='0' value={f.price===0?'0':(f.price||'')} onChange={e=>set('price',e.target.value)} required placeholder='0 nếu đã thu tiền trước'/></label>{isApprover&&<label>Trạng thái<select value={f.show_status||'registered'} onChange={e=>set('show_status',e.target.value)}><option value='registered'>Đã đăng ký</option><option value='completed_pending_approval'>Chờ duyệt</option><option value='approved'>Đã duyệt</option><option value='rejected'>Từ chối</option></select></label>}</div><label>Ghi chú <span>optional</span><textarea value={f.description||''} onChange={e=>set('description',e.target.value)} placeholder='Nội dung show, tình trạng KH, ghi chú duyệt...'/></label><button className='primary full'>Lưu show PT</button></form></div>
 }
 
 function Reports({leads,branches,users}){const sold=leads.filter(l=>l.status==='Đã mua gói'),rev=sold.reduce((s,l)=>s+Number(l.value||0),0);const bySale=users.map(u=>({id:u.id,name:u.full_name||u.email||'Chưa tên',count:sold.filter(l=>l.owner_id===u.id).length,revenue:sold.filter(l=>l.owner_id===u.id).reduce((s,l)=>s+Number(l.value||0),0)})).filter(x=>x.count||x.revenue).sort((a,b)=>b.revenue-a.revenue);const byBranch=branches.map(b=>({id:b.id,name:b.name,count:sold.filter(l=>l.branch_id===b.id).length,revenue:sold.filter(l=>l.branch_id===b.id).reduce((s,l)=>s+Number(l.value||0),0)})).filter(x=>x.count||x.revenue).sort((a,b)=>b.revenue-a.revenue);const maxSale=Math.max(...bySale.map(x=>x.revenue),1),maxBranch=Math.max(...byBranch.map(x=>x.revenue),1);return <><div className='cards report-kpis'><Card t='Khách đã mua gói' v={sold.length} s='Chỉ tính trạng thái Đã mua gói'/><Card t='Tổng doanh thu' v={money(rev)} s='Theo dữ liệu trong bộ lọc'/><Card t='Sale có doanh thu' v={bySale.length} s='Nhân sự chốt gói'/><Card t='Doanh thu TB/khách' v={money(sold.length?Math.round(rev/sold.length):0)} s='Giá trị trung bình'/></div><div className='report-grid'><section className='panel report-card'><div className='report-head'><h3>Doanh thu theo sale</h3><span>Khách đã mua gói</span></div>{bySale.length?bySale.map(x=><div className='report-bar' key={x.id}><div><b>{x.name}</b><small>{x.count} khách</small></div><div className='bar-wrap'><i style={{width:(x.revenue/maxSale*100)+'%'}}></i></div><strong>{money(x.revenue)}</strong></div>):<p>Chưa có khách đã mua gói trong bộ lọc.</p>}</section><section className='panel report-card'><div className='report-head'><h3>Doanh thu theo cơ sở</h3><span>Chi nhánh</span></div>{byBranch.length?byBranch.map(x=><div className='report-bar' key={x.id}><div><b>{x.name}</b><small>{x.count} khách</small></div><div className='bar-wrap branch'><i style={{width:(x.revenue/maxBranch*100)+'%'}}></i></div><strong>{money(x.revenue)}</strong></div>):<p>Chưa có doanh thu theo cơ sở.</p>}</section></div><section className='panel report-card'><div className='report-head'><h3>Danh sách khách đã mua gói</h3><span>{sold.length} khách</span></div><div className='table'><table><thead><tr><th>Khách hàng</th><th>SĐT</th><th>Cơ sở</th><th>Sale</th><th>Gói tập</th><th>Doanh thu</th><th>Ngày tạo</th><th>Ghi chú</th></tr></thead><tbody>{sold.map(l=><tr key={l.id}><td><b>{l.name}</b></td><td>{l.phone}</td><td>{bname(branches,l.branch_id)}</td><td>{uname(users,l.owner_id)}</td><td>{l.package_interest||''}</td><td><b>{money(l.value)}</b></td><td>{l.created_at?String(l.created_at).slice(0,10):''}</td><td>{l.note||''}</td></tr>)}{!sold.length&&<tr><td colSpan='8'>Chưa có khách hàng đã mua gói.</td></tr>}</tbody></table></div></section></>}
