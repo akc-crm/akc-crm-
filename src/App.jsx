@@ -128,8 +128,8 @@ const{data:bd}=await supabase.from('boards').select('*').order('position',{ascen
   if(error)return alert(error.message);
 
   // Gọi trực tiếp webhook n8n sau khi CRM update trạng thái thành công
-  // Khi test workflow trong n8n dùng webhook-test. Khi active production, đổi sang /webhook/ nếu cần.
-  const webhook='https://n8n.kickfits.info/webhook-test/crm-show-pt-status';
+  // Production webhook URL (workflow đã active)
+  const webhook='https://n8n.kickfits.info/webhook/crm-show-pt-status';
   try{
     const res=await fetch(webhook,{
       method:'POST',
