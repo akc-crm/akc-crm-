@@ -696,4 +696,43 @@ header>div:last-child button,.primary{font-weight:800!important}.reset-password-
   .show-code-box{padding:10px 12px!important;border-radius:16px!important}
   .pt-show-form-v2 .primary.full{position:sticky!important;bottom:10px!important;z-index:6!important;box-shadow:0 12px 30px rgba(239,35,60,.28)!important}
 }
-
+/* AKC PT Show complete button patch */
+.show-actions{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  align-items:center;
+}
+.show-actions .primary{
+  background:#ef242f;
+  color:#fff;
+  border-color:#ef242f;
+  font-weight:800;
+}
+.show-status.completed_pending_approval{
+  background:#dbeafe !important;
+  color:#1d4ed8 !important;
+  border:1px solid #93c5fd !important;
+}
+.show-status.completed_pending_approval::before{
+  content:'🔵 ';
+}
+@media (max-width:768px){
+  .pt-show-table table,
+  .pt-show-table thead,
+  .pt-show-table tbody,
+  .pt-show-table tr,
+  .pt-show-table th,
+  .pt-show-table td{
+    font-size:13px !important;
+  }
+  .show-actions{
+    flex-direction:column;
+    align-items:stretch;
+  }
+  .show-actions button{
+    width:100%;
+    padding:10px 12px !important;
+    border-radius:12px !important;
+  }
+}

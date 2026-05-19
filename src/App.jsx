@@ -118,8 +118,44 @@ const{data:bd}=await supabase.from('boards').select('*').order('position',{ascen
  async function completePtShow(id){
   const show=ptShows.find(x=>x.id===id);
   if(!show||!canCompletePtShow(show))return alert('PT chỉ được bấm hoàn thành show của chính mình khi đang ở trạng thái đã đăng ký.');
-  const{error}=await supabase.rpc('mark_pt_show_completed',{show_id:id});
-  if(error)return alert(error.message);load(true)
+  const{data,error}=await supabase.rpc('mark_pt_show_completed',{show_id:id});
+  if(error)return alert(error.message);
+
+  // Optional n8n webhook: đặt biến VITE_N8N_PT_SHOW_COMPLETED_WEBHOOK trên Vercel nếu muốn gọi trực tiếp
+  const webhook=import.meta.env.VITE_N8N_PT_SHOW_COMPLETED_WEBHOOK;
+  if(webhook){
+    try{
+      await fetch(webhook,{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          event:'pt_show_completed',
+          show_id:id,
+          show_crm_code:show.show_crm_code||show.id,
+          customer_name:show.customer_name||'',
+          kiot_customer_id:show.kiot_customer_id||'',
+          pt_id:show.pt_id||'',
+          pt_name:show.pt_name||profile.full_name||'',
+          kiot_employee_id:show.kiot_employee_id||'',
+          branch_id:show.branch_id||'',
+          branch_name:show.branch_name||'',
+          show_date:show.show_date||'',
+          start_time:show.start_time||'',
+          end_time:show.end_time||'',
+          service_product_id:show.service_product_id||'',
+          service_product_name:show.service_product_name||'',
+          price:Number(show.price||0),
+          status:'completed_pending_approval',
+          completed_at:new Date().toISOString()
+        })
+      });
+    }catch(_e){
+      console.warn('N8N webhook failed',_e);
+    }
+  }
+
+  alert('Đã chuyển sang trạng thái Chờ duyệt Telegram.');
+  load(true)
  }
  async function approvePtShow(id){
   const show=ptShows.find(x=>x.id===id);
