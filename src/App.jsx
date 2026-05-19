@@ -127,37 +127,43 @@ const{data:bd}=await supabase.from('boards').select('*').order('position',{ascen
   const{data,error}=await supabase.rpc('mark_pt_show_completed',{show_id:id});
   if(error)return alert(error.message);
 
-  // Optional n8n webhook: đặt biến VITE_N8N_PT_SHOW_COMPLETED_WEBHOOK trên Vercel nếu muốn gọi trực tiếp
-  const webhook=import.meta.env.VITE_N8N_PT_SHOW_COMPLETED_WEBHOOK;
-  if(webhook){
-    try{
-      await fetch(webhook,{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({
-          event:'pt_show_completed',
-          show_id:id,
-          show_crm_code:show.show_crm_code||show.id,
-          customer_name:show.customer_name||'',
-          kiot_customer_id:show.kiot_customer_id||'',
-          pt_id:show.pt_id||'',
-          pt_name:show.pt_name||profile.full_name||'',
-          kiot_employee_id:show.kiot_employee_id||'',
-          branch_id:show.branch_id||'',
-          branch_name:show.branch_name||'',
-          show_date:show.show_date||'',
-          start_time:show.start_time||'',
-          end_time:show.end_time||'',
-          service_product_id:show.service_product_id||'',
-          service_product_name:show.service_product_name||'',
-          price:Number(show.price||0),
-          status:'completed_pending_approval',
-          completed_at:new Date().toISOString()
-        })
-      });
-    }catch(_e){
-      console.warn('N8N webhook failed',_e);
+  // Gọi trực tiếp webhook n8n sau khi CRM update trạng thái thành công
+  // Khi test workflow trong n8n dùng webhook-test. Khi active production, đổi sang /webhook/ nếu cần.
+  const webhook='https://n8n.kickfits.info/webhook-test/crm-show-pt-status';
+  try{
+    const res=await fetch(webhook,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        event:'show_status_changed',
+        show_id:show.id||id,
+        show_code:show.show_crm_code||show.show_code||show.id||id,
+        status:'completed_pending_approval',
+        customer_name:show.customer_name||show.title||'',
+        kiot_customer_id:show.kiot_customer_id||'',
+        pt_id:show.pt_id||'',
+        pt_name:show.pt_name||profile.full_name||'',
+        kiot_employee_id:show.kiot_employee_id||'',
+        branch_id:show.branch_id||'',
+        branch_name:show.branch_name||'',
+        show_date:show.show_date||'',
+        start_time:show.start_time||'',
+        end_time:show.end_time||'',
+        service_name:show.service_product_name||show.service_name||'',
+        service_id:show.service_product_id||show.service_id||'',
+        price:Number(show.price||0),
+        note:show.description||show.note||'',
+        completed_at:new Date().toISOString()
+      })
+    });
+    if(!res.ok){
+      const txt=await res.text().catch(()=>String(res.status));
+      console.warn('N8N webhook response error',res.status,txt);
+      alert('Đã hoàn thành trong CRM, nhưng n8n chưa nhận được webhook: '+res.status);
     }
+  }catch(_e){
+    console.warn('N8N webhook failed',_e);
+    alert('Đã hoàn thành trong CRM, nhưng gọi webhook n8n bị lỗi. Kiểm tra workflow test/production và CORS.');
   }
 
   alert('Đã chuyển sang trạng thái Chờ duyệt Telegram.');
