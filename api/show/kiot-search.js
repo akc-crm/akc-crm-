@@ -99,7 +99,18 @@ export default async function handler(req, res) {
       return json(res, 200, { success: true, results });
     }
 
-    return json(res, 400, { success: false, error: 'Invalid type. Use: customer, employee, product' });
+    if (type === 'branch') {
+      // Get all branches from Kiot
+      const data = await kiotGet('/branches', { pageSize: '100' });
+      const results = (data.data || []).map(b => ({
+        id: b.id,
+        name: b.branchName,
+        address: b.address || ''
+      }));
+      return json(res, 200, { success: true, results });
+    }
+
+    return json(res, 400, { success: false, error: 'Invalid type. Use: customer, employee, product, branch' });
   } catch (e) {
     return json(res, 500, { success: false, error: e.message || String(e) });
   }
