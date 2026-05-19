@@ -672,7 +672,6 @@ header>div:last-child button,.primary{font-weight:800!important}.reset-password-
   .show-actions button{flex:1}
 }
 
-
 /* PT Show form v2: required Kiot fields + mobile optimization */
 .pt-show-overlay{align-items:flex-start!important;padding:28px 14px!important;overflow:auto!important}
 .pt-show-form-v2{max-width:900px!important;background:#fff!important;border-radius:24px!important;box-shadow:0 25px 80px rgba(15,23,42,.25)!important}
@@ -735,4 +734,15 @@ header>div:last-child button,.primary{font-weight:800!important}.reset-password-
     padding:10px 12px !important;
     border-radius:12px !important;
   }
+}
+
+/* === AKC FINAL: Show PT complete button + status badge === */
+.pt-show-table .show-actions{display:flex!important;gap:8px!important;flex-wrap:wrap!important;align-items:center!important}
+.pt-show-table .show-actions button{white-space:nowrap!important}
+.pt-show-table .show-actions .primary{background:#ef242f!important;color:#fff!important;border-color:#ef242f!important;font-weight:800!important;box-shadow:0 10px 22px rgba(239,36,47,.18)!important}
+.pt-show-table .show-status.completed_pending_approval{background:#dbeafe!important;color:#1d4ed8!important;border:1px solid #93c5fd!important}
+.pt-show-table .show-status.completed_pending_approval::before{content:'🔵 '}
+@media(max-width:768px){
+  .pt-show-table .show-actions{flex-direction:column!important;align-items:stretch!important}
+  .pt-show-table .show-actions button{width:100%!important;padding:10px 12px!important;border-radius:12px!important}
 }

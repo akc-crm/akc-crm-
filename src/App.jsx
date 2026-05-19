@@ -79,7 +79,13 @@ const{data:bd}=await supabase.from('boards').select('*').order('position',{ascen
   return false;
  }
  function canCompletePtShow(show){
-  return show&&show.pt_id===profile.id&&['draft','registered'].includes(show.show_status||'registered');
+  if(!show)return false;
+  const ready=['draft','registered'].includes(show.show_status||'registered');
+  if(!ready)return false;
+  if(isAdmin)return true;
+  if(isManager)return !profile.branch_id||show.branch_id===profile.branch_id;
+  if(isPT)return show.pt_id===profile.id;
+  return false;
  }
  function canApprovePtShow(show){
   return (isAdmin||(isManager&&(!profile.branch_id||show.branch_id===profile.branch_id)))&&show.show_status==='completed_pending_approval';
@@ -117,7 +123,7 @@ const{data:bd}=await supabase.from('boards').select('*').order('position',{ascen
  }
  async function completePtShow(id){
   const show=ptShows.find(x=>x.id===id);
-  if(!show||!canCompletePtShow(show))return alert('PT chỉ được bấm hoàn thành show của chính mình khi đang ở trạng thái đã đăng ký.');
+  if(!show||!canCompletePtShow(show))return alert('Anh/chị không có quyền bấm hoàn thành show này hoặc show không còn ở trạng thái đã đăng ký.');
   const{data,error}=await supabase.rpc('mark_pt_show_completed',{show_id:id});
   if(error)return alert(error.message);
 
@@ -204,7 +210,7 @@ function TeachingShows({shows,branches,users,profile,edit,complete,approve,rejec
  };
  const canSee=s=>isAdmin||(isManager&&(!profile.branch_id||s.branch_id===profile.branch_id))||(isPT&&s.pt_id===profile.id);
  const canEdit=s=>isAdmin||(isManager&&canSee(s))||(isPT&&s.pt_id===profile.id&&['draft','registered','rejected'].includes(s.show_status||'registered'));
- const canComplete=s=>isPT&&s.pt_id===profile.id&&['draft','registered'].includes(s.show_status||'registered');
+ const canComplete=s=>['draft','registered'].includes(s.show_status||'registered')&&(isAdmin||(isManager&&canSee(s))||(isPT&&s.pt_id===profile.id));
  const canApprove=s=>isApprover&&canSee(s)&&s.show_status==='completed_pending_approval';
  const list=shows.filter(canSee);
  const title=isPT?'Show PT của tôi':isManager?'Show PT cơ sở':'Checklist Show PT / Duyệt hóa đơn';
