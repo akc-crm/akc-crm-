@@ -1,0 +1,23 @@
+Filter structure (6 direct children):
+0: input[text] (search) → should be full row (grid-column: 1/-1)
+1: select (cơ sở) → left half
+2: select (nguồn) → right half
+3: select (sale) → left half
+4: input[date] → right half (THIS overflows)
+5: button (Xóa lọc) → full row
+
+The issue with date: input[type=date] on iOS renders with native picker that has min-width.
+Fix: Either hide date on mobile or make it constrained with overflow:hidden + appearance styling.
+
+KPI cards: 4 cards in .cards.dashboard-kpis div. Should be 2x2 grid.
+The desktop shows them as 4 columns. On mobile should be 2x2.
+
+Current CSS conflict:
+- Line 509 (first @media 768px block): .filters{grid-template-columns:1fr 1fr} ← FIXED
+- Line 510 (same block): .cards{grid-template-columns:1fr 1fr} ← FIXED
+
+But the user says it's STILL not working. Possible reason:
+- Vercel hasn't deployed yet
+- OR there's another override somewhere
+
+Let me check if there's a @media(max-width:1050px) rule that overrides cards to 1fr.

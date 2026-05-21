@@ -1,0 +1,35 @@
+FINAL ANALYSIS:
+
+The deployed CSS (last-modified: Thu, 21 May 2026 08:11:06 GMT) contains ALL our fixes:
+
+1. .cards,.dashboard-kpis,.report-kpis{grid-template-columns:1fr 1fr!important} - KPI cards 2x2
+2. .filters{grid-template-columns:1fr 1fr!important} - filters 2 columns
+3. .filters>input[type=date],.filters>button{grid-column:1/-1!important} - date and button full row
+4. .filters>input:first-child,.filters>input[type=text]{grid-column:1/-1!important} - search full row
+
+This is the LAST @media(width<=768px) block in the file (position ~64000 out of 66741 total).
+It comes AFTER all other rules, so it wins in the cascade.
+
+HOWEVER - there's a potential issue:
+The @media(width<=1100px) rule at position 28057 has:
+  .filters{grid-template-columns:1fr!important}
+
+This also uses !important. On mobile (width < 768px), BOTH media queries match.
+Since our 768px rule comes LATER in the file, it should win.
+
+BUT WAIT - the problem might be that the user's screenshot was taken BEFORE our latest deploy.
+The CSS file hash is index-gCvdb4ry.css which was last modified at 08:11.
+Our commit was at 08:06 UTC. Vercel built and deployed by 08:11.
+
+The user might need to hard-refresh (clear cache) on their phone.
+
+ALTERNATIVELY - the date input overflow issue:
+On iOS, input[type=date] has a native appearance that can overflow its container.
+We set grid-column:1/-1 which makes it span the full row.
+But the user's screenshot shows it's BESIDE "Tất cả sale" (same row), not full row.
+
+This means the user is seeing the OLD version (before our fix that makes date full row).
+They need to clear cache or the Vercel deployment wasn't picked up.
+
+SOLUTION: The CSS is correct. User needs to clear browser cache.
+But to be safe, let me also add overflow:hidden and max-width:100% to the date input.

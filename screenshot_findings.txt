@@ -1,0 +1,31 @@
+MOBILE SCREENSHOT FINDINGS (390x844 viewport):
+
+1. FILTERS: 
+   - Search input: full width ✓
+   - "Tất cả cơ sở" + "Tất cả nguồn": 2 columns ✓
+   - "Tất cả sale": LEFT column only, RIGHT column is EMPTY (no date beside it)
+   - Date input (mm/dd/yyyy): FULL ROW - spans entire width ✓ (grid-column:1/-1 works)
+   - "Xóa lọc" button: FULL ROW ✓
+
+2. KPI CARDS:
+   - "Tổng Lead 137" - FULL ROW (1 column) ✗ WRONG!
+   - "Đã chốt 20" - FULL ROW (1 column) ✗ WRONG!
+   - "Lịch hẹn" and "Doanh thu" - NOT VISIBLE (probably below)
+
+PROBLEM: The .cards grid-template-columns:1fr 1fr is NOT being applied!
+Even though it's in the CSS, something is overriding it.
+
+Wait - looking at the HTML structure: the element has class "cards dashboard-kpis"
+The 1050px rule targets ".cards" with grid-template-columns:1fr (no !important)
+Our 768px rule targets ".cards,.dashboard-kpis,.report-kpis" with 1fr 1fr!important
+
+But the screenshot shows 1 column... This means there might be ANOTHER rule.
+
+Actually wait - looking more carefully at the screenshot:
+- Tổng Lead card takes full width
+- Đã chốt card takes full width
+- They look like they're in a 1-column layout
+
+This means the grid-template-columns:1fr 1fr!important is being overridden somewhere.
+
+Let me check if there's an inline style or if the element doesn't have the expected class.

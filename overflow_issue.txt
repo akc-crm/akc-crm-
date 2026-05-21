@@ -1,0 +1,21 @@
+CRITICAL FINDING:
+
+.cards.dashboard-kpis computed grid: 358.797px 358.797px
+Viewport width: 390px
+Total grid width: 358.797 * 2 = 717.6px → OVERFLOWS 390px viewport!
+
+The grid IS 2 columns (1fr 1fr), but each column is 358px because the .card children
+have min-width or content that forces them to be at least 358px wide.
+
+This means the cards are overflowing horizontally, and only the first column is visible.
+The second column (Lịch hẹn, Doanh thu) is off-screen to the right.
+
+FIX NEEDED:
+- Add overflow:hidden to .cards on mobile
+- Or better: use minmax(0, 1fr) instead of 1fr to prevent overflow
+- Or add max-width:100% and min-width:0 to .card children
+
+The .filters grid is 168px 168px = 336px which fits within 390px ✓
+
+For .cards: grid-template-columns: repeat(2, minmax(0, 1fr)) should fix it.
+Also need to ensure .card has min-width:0 and overflow:hidden.

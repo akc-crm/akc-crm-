@@ -1,0 +1,34 @@
+ROOT CAUSE FOUND:
+
+At position 28057 in the deployed CSS, there's a rule:
+@media (width<=1100px) {
+  .filters{grid-template-columns:1fr!important}
+  .dashboard-kpis{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}
+
+This 1100px breakpoint sets .filters to 1fr (single column) with !important.
+On mobile (<=768px), this rule ALSO applies because 390px < 1100px.
+
+Since CSS cascade works by specificity first, then source order, and both use !important,
+the LAST rule wins. Our 768px rules come AFTER this 1100px rule in the file, so they should win.
+
+BUT wait - the .dashboard-kpis in the 1100px rule sets repeat(2,minmax(0,1fr)) which is 2 columns.
+So the KPI cards SHOULD be showing 2 columns already from this rule alone.
+
+The issue the user sees:
+1. KPI cards showing as 1 column → This means something else is overriding
+2. Date input overflowing → native iOS date picker width issue
+
+Let me check if there's a .cards rule (without .dashboard-kpis) that forces 1fr after the 1100px rule.
+
+Actually looking at the positions again:
+- Pos 3984: .cards,.grid,.editor,.kanban{grid-template-columns:1fr} (in @media max-width:1050px)
+- This is BEFORE the 768px rules
+
+The 1050px rule sets .cards to 1fr (1 column). This applies on mobile too.
+Our 768px rules set .cards to 1fr 1fr. Since 768px rules come AFTER in source order, they win.
+
+So the CSS should be correct. The user might be seeing a cached version.
+
+Wait - let me check: the .cards class and .dashboard-kpis class are BOTH on the same element.
+So .dashboard-kpis rules also apply. Let me verify the specificity chain.

@@ -1,0 +1,30 @@
+ALL CSS rules affecting .cards and .filters on mobile (in order of appearance):
+
+LINE 1 (base, no media): .cards{display:grid;grid-template-columns:repeat(4,1fr)} 
+LINE 1 (@media max-width:1050px): .filters,.cards,.grid,.editor{grid-template-columns:1fr}
+LINE 49 (@media max-width:1100px): .filters{grid-template-columns:1fr!important}
+LINE 49 (@media max-width:1100px): .dashboard-kpis{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+
+LINE 85-428 (@media max-width:768px) BLOCK 1:
+  LINE 204: .filters{grid-template-columns:1fr 1fr!important}
+  LINE 220: .filters button{grid-column:1/-1!important}
+  LINE 223: .cards{grid-template-columns:1fr 1fr!important}
+
+LINE 504-514 (@media max-width:768px) BLOCK 2:
+  LINE 509: .filters{grid-template-columns:1fr 1fr!important} ← FIXED
+  LINE 510: .cards,.grid,.dashboard-kpis,.report-kpis{grid-template-columns:1fr 1fr!important} ← FIXED
+
+LINE 517-595 (@media max-width:768px) BLOCK 3:
+  LINE 569: .filters{grid-template-columns:1fr 1fr!important}
+  LINE 573: .cards{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+
+LINE 967-1120 (@media max-width:768px) BLOCK 4:
+  LINE 971: .cards,.dashboard-kpis,.report-kpis{grid-template-columns:1fr 1fr!important}
+  LINE 1004: .filters{grid-template-columns:1fr 1fr!important}
+
+CONCLUSION: All blocks now say 1fr 1fr for both .cards and .filters.
+The issue user sees might be:
+1. Vercel cache not updated yet
+2. The date input overflowing its grid cell (native iOS date picker has min-width)
+
+For the date input overflow: need to add specific styling to constrain it.
