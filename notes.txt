@@ -1,0 +1,26 @@
+Filters component children order:
+1. input[text] (search) - should be full row
+2. select (branch) - half row left
+3. select (source) - half row right
+4. select (sale) - half row left
+5. input[type=date] - half row right (THIS is the one that's overflowing/tràn viền)
+6. button (Xóa lọc) - full row
+
+The issue: input[type=date] is the 5th child. On mobile grid 2-col, it sits next to "Tất cả sale" select.
+The date input is overflowing its cell boundary.
+
+Fix needed:
+- Make the date input fit properly within its grid cell (box-sizing, overflow hidden, max-width 100%)
+- OR hide date on mobile
+- OR put sale + date on same row but constrained
+
+KPI Cards (Dashboard):
+- 4 cards: Tổng Lead, Lịch hẹn, Đã chốt, Doanh thu dự kiến
+- Need 2x2 grid on mobile
+- Currently showing as 1 column because of conflicting CSS
+
+The problem is TWO @media(max-width:768px) blocks:
+1. Line 517 block has .cards{grid-template-columns:repeat(2,minmax(0,1fr))!important} at line 573
+2. Line 967 block has .cards,.dashboard-kpis{grid-template-columns:1fr 1fr!important} at line 971
+
+Both say 2 columns but the .card strong font-size differs. The real issue might be that the line 573 block's .cards rule is being overridden somewhere else, or the cards container isn't using display:grid.

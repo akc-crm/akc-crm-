@@ -1,0 +1,17 @@
+ROOT CAUSE FOUND:
+
+Line 509: .filters,.month-filter{grid-template-columns:1fr!important; ...}
+Line 510: .cards,.grid,.dashboard-kpis,.report-kpis{grid-template-columns:1fr!important}
+
+These are in the SAME @media(max-width:768px) block (starting at line 505).
+They force:
+- .filters to 1 column (causing date to go full row and look weird)
+- .cards to 1 column (causing KPI cards to stack vertically)
+
+Later CSS at line 569 tries to override with 1fr 1fr but line 509/510 also has !important.
+Since they're in the same specificity, the LAST one wins.
+
+The fix:
+- Line 509: change .filters to grid-template-columns:1fr 1fr
+- Line 510: change .cards to grid-template-columns:1fr 1fr
+- Then the date input needs to fit in its cell properly (not overflow)
