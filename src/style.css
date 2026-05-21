@@ -922,3 +922,43 @@ header>div:last-child button,.primary{font-weight:800!important}.reset-password-
 @media(min-width:769px){
   .mobile-user{display:none!important}
 }
+
+/* Show date/time row - compact 3-column layout */
+.show-datetime-row{
+  display:grid;
+  grid-template-columns:1.2fr 0.9fr 0.9fr;
+  gap:12px;
+  margin:4px 0 14px;
+}
+.show-datetime-row label{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  font-size:13px;
+  font-weight:600;
+  color:#0f172a;
+}
+.show-datetime-row input{
+  width:100%!important;
+  min-height:44px!important;
+  padding:8px 10px!important;
+  border-radius:14px!important;
+  font-size:15px!important;
+  text-align:center!important;
+}
+@media(max-width:768px){
+  .show-datetime-row{
+    grid-template-columns:1.2fr 0.9fr 0.9fr!important;
+    gap:8px!important;
+    margin:2px 0 12px!important;
+  }
+  .show-datetime-row label{
+    font-size:12px!important;
+    gap:4px!important;
+  }
+  .show-datetime-row input{
+    min-height:42px!important;
+    padding:8px 6px!important;
+    font-size:14px!important;
+  }
+}
