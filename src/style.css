@@ -432,7 +432,7 @@ button{min-height:42px}
   main{padding:10px!important;}
   header{top:112px!important;}
   header h2{font-size:22px!important;}
-  .filters{grid-template-columns:1fr!important;}
+  .filters{grid-template-columns:1fr 1fr!important;}
   .cards{grid-template-columns:1fr 1fr!important;}
   .board-list{flex-basis:88vw!important;min-width:88vw!important;max-width:88vw!important;}
   .board-bar>div{grid-template-columns:1fr auto auto!important;}
@@ -965,7 +965,7 @@ header>div:last-child button,.primary{font-weight:800!important}.reset-password-
 
 /* === Mobile Dashboard/Overview Layout Fix === */
 @media(max-width:768px){
-  /* KPI cards - even 2-column grid */
+  /* KPI cards - 2x2 grid with smaller Tổng Lead & Đã chốt row */
   .cards,.dashboard-kpis,.report-kpis{
     display:grid!important;
     grid-template-columns:1fr 1fr!important;
@@ -998,7 +998,7 @@ header>div:last-child button,.primary{font-weight:800!important}.reset-password-
     margin-top:4px!important;
   }
 
-  /* Filters - compact 2-col with full-width search */
+  /* Filters - compact 2-col with full-width search & date+button full row */
   .filters{
     display:grid!important;
     grid-template-columns:1fr 1fr!important;
@@ -1021,8 +1021,13 @@ header>div:last-child button,.primary{font-weight:800!important}.reset-password-
     padding:8px 10px!important;
     min-width:0!important;
     width:100%!important;
+    box-sizing:border-box!important;
   }
-  .filters button{
+  /* Date input and button each take full row */
+  .filters>input[type="date"]{
+    grid-column:1 / -1!important;
+  }
+  .filters>button{
     grid-column:1 / -1!important;
   }
 
