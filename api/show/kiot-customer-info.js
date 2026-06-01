@@ -116,7 +116,7 @@ export default async function handler(req, res) {
     try {
       const invoiceData = await kiotGet('/invoices', {
         customerCode: customer_code,
-        pageSize: '5',
+        pageSize: '20',
         orderBy: 'createdDate',
         orderDirection: 'Desc',
         includeTotal: 'true'
@@ -124,11 +124,15 @@ export default async function handler(req, res) {
       const invoices = invoiceData.data || [];
       if (invoices.length > 0) {
         hasInvoice = true;
-        // Lấy hóa đơn gần nhất có ghi chú
+        // Lấy hóa đơn gần nhất có ghi chú số buổi (dạng X/Y)
+        // Bỏ qua các hóa đơn do hệ thống tạo (ghi chú bắt đầu bằng "Show PT -")
         for (const inv of invoices) {
-          const note = inv.description || inv.note || '';
-          if (note && note.trim()) {
-            latestInvoiceNote = note.trim();
+          const note = (inv.description || inv.note || '').trim();
+          if (!note) continue;
+          if (/^Show PT\s*-/i.test(note)) continue; // bỏ qua hóa đơn show PT
+          // Kiểm tra có pattern số buổi X/Y không
+          if (/\d+\s*\/\s*\d+/.test(note)) {
+            latestInvoiceNote = note;
             break;
           }
         }
@@ -140,12 +144,12 @@ export default async function handler(req, res) {
     let autoNote = '';
     let source = '';
 
-    if (hasInvoice && latestInvoiceNote) {
-      // Phương án 1: Có hóa đơn -> tính buổi tiếp theo từ ghi chú hóa đơn
+    if (latestInvoiceNote) {
+      // Phương án 1: Tìm thấy hóa đơn có ghi chú số buổi -> tính buổi tiếp theo
       autoNote = calcNextSession(latestInvoiceNote, false);
       source = 'invoice';
-    } else if (!hasInvoice && customerNote) {
-      // Phương án 2: Chưa có hóa đơn -> lấy từ ghi chú KH (TSB:...)
+    } else if (customerNote) {
+      // Phương án 2: Không có hóa đơn số buổi -> lấy từ ghi chú KH (TSB:...)
       autoNote = parseCustomerNote(customerNote);
       source = 'customer_note';
     }
