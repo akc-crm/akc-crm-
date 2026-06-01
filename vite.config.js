@@ -8,16 +8,17 @@ export default defineConfig({
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {
-        // Tách các thư viện nặng thành chunk riêng - chỉ load khi cần
-        manualChunks: {
-          // React core - load đầu tiên, cache lâu dài
-          'vendor-react': ['react', 'react-dom'],
-          // Supabase - load sau khi React xong
-          'vendor-supabase': ['@supabase/supabase-js'],
-          // Chart.js - chỉ load khi vào trang Dashboard/Reports
-          'vendor-chart': ['chart.js'],
-          // xlsx - chỉ load khi export Excel
-          'vendor-xlsx': ['xlsx'],
+        // Tách vendor thành function (Vite 8.x yêu cầu function, không phải object)
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('react') || id.includes('react-dom')) {
+              return 'vendor-react';
+            }
+            if (id.includes('@supabase')) {
+              return 'vendor-supabase';
+            }
+            return 'vendor';
+          }
         },
         // Đặt tên file có hash để browser cache hiệu quả
         chunkFileNames: 'assets/[name]-[hash].js',
@@ -25,16 +26,9 @@ export default defineConfig({
         assetFileNames: 'assets/[name]-[hash].[ext]',
       },
     },
-    // Bật minify tốt nhất
-    minify: 'terser',
-    terserOptions: {
-      compress: {
-        drop_console: false, // Giữ console để debug
-        drop_debugger: true,
-        pure_funcs: [],
-      },
-    },
-    // Bật source map cho production debugging
+    // Bật minify
+    minify: true,
+    // Không cần source map production
     sourcemap: false,
     // Target modern browsers để bundle nhỏ hơn
     target: 'es2020',
@@ -46,6 +40,5 @@ export default defineConfig({
   // Tối ưu dependencies pre-bundling
   optimizeDeps: {
     include: ['react', 'react-dom', '@supabase/supabase-js'],
-    exclude: ['chart.js', 'xlsx'], // Lazy load khi cần
   },
 });
