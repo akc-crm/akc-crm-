@@ -83,8 +83,8 @@ export default async function handler(req, res) {
       return json(res, 400, { success: false, error: 'Missing customer_code' });
     }
 
-    // Kiểm tra có phải KH nhóm không (dựa vào tên dịch vụ)
-    const isGroup = service_name && /tháng\s*nhóm/i.test(service_name);
+    // Kiểm tra có phải KH nhóm không (dựa vào tên dịch vụ có chữ 'nhóm')
+    const isGroup = service_name && /nhóm/i.test(service_name);
 
     if (isGroup) {
       return json(res, 200, {

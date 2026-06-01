@@ -316,7 +316,7 @@ function PtShowModal({initial,branches,users,profile,onClose,onSave}){
   setF(prev=>({...prev,service_product_id:s.code,service_product_name:s.name,price:s.price||prev.price}));
   setSvcOpen(false);setSvcResults([]);
   // Nếu là gói nhóm -> điền 1/1, nếu đã chọn KH -> re-fetch ghi chú
-  if(/tháng\s*nhóm/i.test(s.name)){
+  if(/nhóm/i.test(s.name)){
    setF(prev=>({...prev,service_product_id:s.code,service_product_name:s.name,price:s.price||prev.price,description:'1/1'}));
   }else if(f.kiot_customer_id){
    autoFillNote(f.kiot_customer_id,s.name);
