@@ -263,6 +263,23 @@ function PtShowModal({initial,branches,users,profile,onClose,onSave}){
    if(d.success)setKiotBranches(d.results||[]);
   }).catch(()=>{}).finally(()=>setBranchLoading(false));
  },[]);
+ // Auto-fill kiot_employee_id for firstPt if not set in Supabase
+ useEffect(()=>{
+  if(!f.kiot_employee_id&&f.pt_id){
+   const pt=pts.find(u=>u.id===f.pt_id)||firstPt;
+   const ptName=pt.full_name||pt.email||'';
+   if(ptName.length>=2){
+    setEmpLoading(true);
+    fetch('/api/show/kiot-search?type=employee&q='+encodeURIComponent(ptName))
+     .then(r=>r.json()).then(data=>{
+      if(data.success&&data.results.length>0){
+       const match=data.results[0];
+       setF(prev=>({...prev,kiot_employee_id:String(match.id||'')}));
+      }
+     }).catch(()=>{}).finally(()=>setEmpLoading(false));
+   }
+  }
+ },[]);
  // Debounced Kiot customer search
  function searchCustomer(q){
   setF(prev=>({...prev,customer_name:q}));
