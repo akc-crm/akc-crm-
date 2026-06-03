@@ -324,18 +324,21 @@ function PtShowModal({initial,branches,users,profile,onClose,onSave}){
  }
  function changePT(id){
   const pt=pts.find(u=>u.id===id)||profile;
-  setF(prev=>({...prev,pt_id:id,kiot_employee_id:pt.kiot_employee_id||prev.kiot_employee_id||'',branch_id:profile.role==='admin'?(pt.branch_id||prev.branch_id):prev.branch_id}));
-  // Auto-search Kiot employee by PT name
-  const ptName=pt.full_name||pt.email||'';
-  if(ptName.length>=2){
-   setEmpLoading(true);
-   fetch('/api/show/kiot-search?type=employee&q='+encodeURIComponent(ptName))
-    .then(r=>r.json()).then(data=>{
-     if(data.success&&data.results.length>0){
-      const match=data.results[0];
-      setF(prev=>({...prev,kiot_employee_id:match.code}));
-     }
-    }).catch(()=>{}).finally(()=>setEmpLoading(false));
+  const ptKiotId=pt.kiot_employee_id||'';
+  setF(prev=>({...prev,pt_id:id,kiot_employee_id:ptKiotId||prev.kiot_employee_id||'',branch_id:profile.role==='admin'?(pt.branch_id||prev.branch_id):prev.branch_id}));
+  // Only search Kiot API if pt.kiot_employee_id is not set in Supabase
+  if(!ptKiotId){
+   const ptName=pt.full_name||pt.email||'';
+   if(ptName.length>=2){
+    setEmpLoading(true);
+    fetch('/api/show/kiot-search?type=employee&q='+encodeURIComponent(ptName))
+     .then(r=>r.json()).then(data=>{
+      if(data.success&&data.results.length>0){
+       const match=data.results[0];
+       setF(prev=>({...prev,kiot_employee_id:String(match.id||match.code||'')}));
+      }
+     }).catch(()=>{}).finally(()=>setEmpLoading(false));
+   }
   }
  }
  function changeServiceId(v){const presets={PT001:'Buổi PT cá nhân',PTSHOW:'Buổi PT / Teaching show',GROUPPT:'Buổi PT nhóm'};setF({...f,service_product_id:v,service_product_name:f.service_product_name||presets[String(v).toUpperCase()]||''});}
