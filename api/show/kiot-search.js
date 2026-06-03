@@ -69,14 +69,25 @@ export default async function handler(req, res) {
     }
 
     if (type === 'employee') {
-      // Search employees (users in Kiot)
-      const data = await kiotGet('/users', { pageSize: '100' });
+      // Search employees (users in Kiot) - fetch all pages
+      let allUsers = [];
+      let currentItem = 0;
+      const pageSize = 100;
+      while (true) {
+        const data = await kiotGet('/users', { pageSize: String(pageSize), currentItem: String(currentItem) });
+        const batch = data.data || [];
+        allUsers = allUsers.concat(batch);
+        if (batch.length < pageSize || allUsers.length >= (data.total || 0)) break;
+        currentItem += pageSize;
+      }
       const q_lower = q.toLowerCase();
-      const results = (data.data || []).filter(u =>
-        u.givenName && u.givenName.toLowerCase().includes(q_lower)
-      ).map(u => ({
+      // If q is generic (like 'PT' or 'all'), return all; otherwise filter by name
+      const filtered = (q_lower === 'pt' || q_lower === 'all' || q_lower === '')
+        ? allUsers
+        : allUsers.filter(u => u.givenName && u.givenName.toLowerCase().includes(q_lower));
+      const results = filtered.map(u => ({
         id: u.id,
-        code: u.code || `EMP${u.id}`,
+        code: u.code || String(u.id),
         name: u.givenName || u.userName,
         isActive: u.isActive
       }));
