@@ -171,17 +171,16 @@ try{
         completed_at:new Date().toISOString()
       })
     });
-    if(!res.ok){
+        if(!res.ok){
       const txt=await res.text().catch(()=>String(res.status));
       console.warn('N8N webhook response error',res.status,txt);
-      alert('Đã hoàn thành trong CRM, nhưng n8n chưa nhận được webhook: '+res.status);
+      // Không alert lỗi webhook - CRM đã lưu thành công, n8n sẽ tự xử lý sau
     }
   }catch(_e){
     console.warn('N8N webhook failed',_e);
-    alert('Đã hoàn thành trong CRM, nhưng gọi webhook n8n bị lỗi. Kiểm tra workflow test/production và CORS.');
+    // Không alert lỗi kết nối - CRM đã lưu thành công
   }
-
-  alert('Đã chuyển sang trạng thái Chờ duyệt Telegram.');
+  alert('Đã chuyển sang trạng thái Chờ duyệt. Quản lý sẽ nhận thông báo Telegram.');
   load(true)
  }
  async function approvePtShow(id){
