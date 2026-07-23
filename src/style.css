@@ -1127,3 +1127,54 @@ header>div:last-child button,.primary{font-weight:800!important}.reset-password-
     white-space:nowrap!important;
   }
 }
+
+/* ===== TRAINING PLAN WIZARD ===== */
+.training-plan-page{padding:24px;max-width:640px;margin:0 auto;}
+.tp-card{background:#fff;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,.10);overflow:hidden;}
+.tp-header{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);padding:28px 32px;text-align:center;}
+.tp-header h2{color:#fff!important;font-size:1.2rem;font-weight:800;letter-spacing:1px;margin:0 0 6px;}
+.tp-header p{color:rgba(255,255,255,.7)!important;font-size:.85rem;margin:0;}
+.tp-progress{display:flex;align-items:flex-start;justify-content:center;gap:0;padding:24px 32px 0;background:#fff;}
+.tp-step{display:flex;flex-direction:column;align-items:center;gap:8px;flex:1;position:relative;}
+.tp-step:not(:last-child)::after{content:'';position:absolute;top:16px;left:calc(50% + 16px);right:calc(-50% + 16px);height:2px;background:#e5e7eb;}
+.tp-step.active:not(:last-child)::after,.tp-step.done:not(:last-child)::after{background:#0f3460;}
+.tp-step-dot{width:32px;height:32px;border-radius:50%;background:#e5e7eb;color:#9ca3af!important;font-size:.85rem;font-weight:700;display:flex;align-items:center;justify-content:center;z-index:1;transition:all .2s;}
+.tp-step.active .tp-step-dot{background:#0f3460;color:#fff!important;}
+.tp-step.done .tp-step-dot{background:#10b981;color:#fff!important;}
+.tp-step span{font-size:.72rem;color:#6b7280!important;text-align:center;font-weight:500;}
+.tp-step.active span{color:#0f3460!important;font-weight:700;}
+.tp-body{padding:24px 32px 28px;}
+.tp-body h3{font-size:1rem;font-weight:700;color:#1a1a2e!important;margin:0 0 20px;padding-bottom:12px;border-bottom:2px solid #f3f4f6;}
+.tp-body label{display:flex;flex-direction:column;gap:4px;margin-bottom:14px;font-size:.85rem;font-weight:600;color:#374151!important;}
+.tp-body label input,.tp-body label select,.tp-body label textarea{margin-top:2px;padding:10px 12px;border:1.5px solid #e5e7eb!important;border-radius:8px!important;font-size:.9rem;color:#111!important;background:#fafafa!important;transition:border .2s;}
+.tp-body label input:focus,.tp-body label select:focus,.tp-body label textarea:focus{border-color:#0f3460!important;outline:none;background:#fff!important;}
+.tp-body label textarea{resize:vertical;min-height:72px;}
+.tp-err{color:#ef4444!important;font-size:.75rem;font-weight:500;margin-top:2px;}
+.req{color:#ef4444!important;}
+.tp-field{margin-bottom:14px;}
+.tp-label{font-size:.85rem;font-weight:600;color:#374151!important;display:block;margin-bottom:8px;}
+.tp-days{display:flex;flex-wrap:wrap;gap:8px;}
+.tp-day{display:flex;align-items:center;justify-content:center;width:52px;height:36px;border-radius:8px;border:1.5px solid #e5e7eb!important;font-size:.82rem;font-weight:600;color:#6b7280!important;cursor:pointer;transition:all .15s;user-select:none;background:#fff!important;}
+.tp-day.selected{background:#0f3460!important;border-color:#0f3460!important;color:#fff!important;}
+.tp-day:hover:not(.selected){border-color:#0f3460!important;color:#0f3460!important;}
+.tp-actions{display:flex;gap:12px;margin-top:20px;}
+.tp-actions .ghost{flex:1;}
+.tp-actions .primary{flex:2;}
+.tp-actions .full{flex:1;}
+.tp-submit{font-size:.9rem;font-weight:700;letter-spacing:.5px;}
+.tp-submit:disabled{opacity:.6;cursor:not-allowed;}
+.tp-loading-msg{text-align:center;color:#6b7280!important;font-size:.82rem;margin-top:8px;}
+.tp-error-msg{background:#fef2f2;border:1px solid #fecaca;color:#dc2626!important;border-radius:8px;padding:10px 14px;font-size:.84rem;margin-bottom:12px;}
+.tp-success{padding:48px 32px;text-align:center;}
+.tp-success-icon{width:64px;height:64px;border-radius:50%;background:#10b981;color:#fff!important;font-size:2rem;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;}
+.tp-success h2{font-size:1.3rem;font-weight:800;color:#1a1a2e!important;margin:0 0 8px;}
+.tp-success p{color:#6b7280!important;margin:0 0 24px;}
+@media(max-width:600px){
+ .training-plan-page{padding:12px;}
+ .tp-body{padding:16px 16px 20px;}
+ .tp-header{padding:20px 16px;}
+ .tp-progress{padding:16px 16px 0;}
+ .tp-step span{font-size:.65rem;}
+ .tp-days{gap:6px;}
+ .tp-day{width:44px;height:32px;font-size:.78rem;}
+}

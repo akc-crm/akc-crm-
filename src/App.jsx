@@ -52,7 +52,7 @@ try{
  const avUsers=isAdmin?users.filter(u=>u.active&&u.status==='approved'&&u.role!=='pending'):users.filter(u=>u.active&&u.status==='approved'&&u.branch_id===profile.branch_id&&(isManager||u.id===profile.id));
  const rows=leads.filter(l=>(!filter.branch_id||l.branch_id===filter.branch_id)&&(!filter.source||l.source===filter.source)&&(!filter.owner_id||l.owner_id===filter.owner_id)&&(!filter.date_from||String(l.created_at).slice(0,10)>=filter.date_from)&&(!filter.date_to||String(l.created_at).slice(0,10)<=filter.date_to)&&(!filter.q||String((l.name||'')+' '+(l.phone||'')+' '+(l.note||'')).toLowerCase().includes(filter.q.toLowerCase())));
  const pending=users.filter(u=>u.status==='pending').length;
- const nav=isPT?['BOARD','Show PT']:['Tổng quan','Lead','Pipeline','Lịch hẹn','BOARD','Show PT',...(isAdmin||isManager?['Báo cáo']:[]),...(isAdmin?['Cơ sở',`Tài khoản${pending?' ('+pending+')':''}`]:[]),'Zalo/Facebook'];
+ const nav=isPT?['BOARD','Show PT','Kế Hoạch']:['Tổng quan','Lead','Pipeline','Lịch hẹn','BOARD','Show PT','Kế Hoạch',...(isAdmin||isManager?['Báo cáo']:[]),...(isAdmin?['Cơ sở',`Tài khoản${pending?' ('+pending+')':''}`]:[]),'Zalo/Facebook'];
  async function saveLead(f){const row={name:f.name,phone:f.phone,source:f.source,branch_id:isSale?profile.branch_id:f.branch_id,owner_id:isSale?profile.id:f.owner_id,status:f.status,package_interest:f.package_interest,value:Number(f.value||0),follow_date:f.follow_date||(f.status==='T1'?today():null),note:f.note};const q=f.id?supabase.from('leads').update(row).eq('id',f.id):supabase.from('leads').insert(row);const{error}=await q;if(error)alert(error.message);setModal(null);load(true)}
  async function delLead(id){if(!isAdmin)return alert('Chỉ admin được xóa lead');if(confirm('Xóa lead này?')){const{error}=await supabase.from('leads').delete().eq('id',id);if(error)alert(error.message);load(true)}}
  async function status(id,s){const patch={status:s};if(s==='T1')patch.follow_date=today();const{error}=await supabase.from('leads').update(patch).eq('id',id);if(error)alert(error.message);load(true)}
@@ -200,8 +200,8 @@ const{data:oldChecks}=await supabase.from('card_checklists').select('text,positi
   reloadPtShows()
  }
  const visibleBoards=isStaff?boards.filter(b=>b.branch_id===profile.branch_id):boards;
- const base=isPT&&!['BOARD','Show PT'].includes(page)?'BOARD':(page.startsWith('Tài khoản')?'Tài khoản':page);
- return <div className='app'><aside><div className='brand'><div className='logo'>AKC</div><div><h1>AKC CRM</h1><p>Cloud v8</p></div></div><div className='mobile-user'><button className='user-pill' onClick={()=>setUserMenu(!userMenu)}><span>{(profile.full_name||'U').slice(0,1).toUpperCase()}</span></button>{userMenu&&<div className='user-menu'><strong>{profile.full_name}</strong><small>{profile.role}</small><button onClick={()=>setPasswordModal({})}>Đổi mật khẩu</button><button onClick={()=>supabase.auth.signOut()}>Đăng xuất</button></div>}</div><nav>{nav.map(n=><button key={n} className={base===n.split(' (')[0]?'active':''} onClick={()=>setPage(n.split(' (')[0])}>{n}</button>)}</nav><div className='me'><b>{profile.full_name}</b><span>{profile.role} {profile.branch_id?'· '+bname(branches,profile.branch_id):''}</span><button onClick={()=>setPasswordModal({})}>Đổi mật khẩu</button><button onClick={()=>supabase.auth.signOut()}>Đăng xuất</button></div></aside><main><header><div><h2>{base}</h2><p>{isAdmin?'Admin toàn hệ thống':isManager?'Manager cơ sở':'Sale cá nhân'} · Supabase realtime</p></div><div><input ref={fileInputRef} type='file' accept='.csv' style={{display:'none'}} onChange={importData}/>{(isAdmin||isManager)&&base!=='BOARD'&&<><button onClick={()=>fileInputRef.current?.click()}>Nhập CSV</button><button onClick={exportData}>Xuất CSV</button></>}{base==='BOARD'?<button className='primary' onClick={()=>setBoardModal({})}>+ Tạo board</button>:base==='Lịch hẹn'?<button className='primary' onClick={()=>setCalendarModal({})}>+ Thêm lịch hẹn</button>:base==='Show PT'?<button className='primary' onClick={()=>setModal({type:'teaching_show'})}>+ Đăng ký show PT</button>:<button className='primary' onClick={()=>setModal({})}>+ Thêm lead</button>}</div></header>{!isPT&&<Filters filter={filter} setFilter={setFilter} branches={avBranches} users={avUsers}/>}{base==='Tổng quan'&&<Dashboard leads={rows} branches={avBranches} users={avUsers}/>} {base==='Lead'&&<Lead leads={rows} branches={branches} users={users} edit={setModal} del={delLead} isAdmin={isAdmin}/>} {base==='Pipeline'&&<Pipeline leads={rows} branches={branches} users={users} setStatus={status}/>} {base==='Lịch hẹn'&&<Calendar leads={rows} branches={branches} users={users} add={()=>setCalendarModal({})}/>} {base==='BOARD'&&<BoardPage boards={visibleBoards} lists={boardLists} cards={boardCards} checks={cardChecks} comments={cardComments} users={users} profile={profile} selectedBoard={selectedBoard} setSelectedBoard={setSelectedBoard} setBoardModal={setBoardModal} setCardModal={openCardModal} addList={addBoardList} renameList={renameBoardList} delList={delBoardList} delBoard={delBoard} moveCard={moveBoardCard} dragCard={dragCard}/>} {base==='Show PT'&&<TeachingShows shows={ptShows} branches={branches} users={users} profile={profile} edit={setModal} complete={completePtShow} approve={approvePtShow} reject={rejectPtShow} markInvoice={markKiotInvoice} deleteShow={deletePtShow}/>} {base==='Báo cáo'&&<Reports leads={rows} branches={branches} users={users}/>}  {base==='Cơ sở'&&isAdmin&&<Branches branches={branches} reload={()=>load(true)}/>} {base==='Tài khoản'&&isAdmin&&<Users users={users} branches={branches} reload={()=>load(true)}/>} {base==='Zalo/Facebook'&&<Panel title='Zalo/Facebook' text='Sẵn sàng nối Zalo OA, Facebook Lead Form, Hotline ở bản tiếp theo.'/>}</main>{modal&&(modal.type==='teaching_show'?<PtShowModal initial={modal} branches={avBranches} users={users.filter(u=>u.role==='pt'||u.role==='manager'||u.role==='admin')} profile={profile} onClose={()=>setModal(null)} onSave={savePtShow}/>:<LeadModal initial={modal} branches={avBranches} users={avUsers} profile={profile} onClose={()=>setModal(null)} onSave={saveLead}/>)} {calendarModal&&<AppointmentModal initial={calendarModal} branches={avBranches} users={avUsers} profile={profile} onClose={()=>setCalendarModal(null)} onSave={saveAppointment}/>} {taskModal&&<TaskModal initial={taskModal} branches={avBranches} users={avUsers} leads={leads} profile={profile} onClose={()=>setTaskModal(null)} onSave={saveTask}/>} {boardModal&&<BoardModal initial={boardModal} branches={avBranches} profile={profile} onClose={()=>setBoardModal(null)} onSave={saveBoard}/>} {cardModal&&<BoardCardModal initial={cardModal} lists={boardLists.filter(l=>l.board_id===(cardModal.board_id||selectedBoard))} users={users} checks={cardChecks.filter(c=>c.card_id===cardModal.id)} comments={cardComments.filter(c=>c.card_id===cardModal.id)} profile={profile} onClose={()=>setCardModal(null)} onSave={saveBoardCard} onDelete={delBoardCard} toggleCheck={toggleCheck} updateCheckText={updateCheckText} deleteCheck={deleteCheck} addComment={addComment} updateComment={updateComment} deleteComment={deleteComment}/>} {passwordModal&&<PasswordModal onClose={()=>setPasswordModal(null)} onSave={changeOwnPassword}/>}</div>}
+ const base=isPT&&!['BOARD','Show PT','Kế Hoạch'].includes(page)?'BOARD':(page.startsWith('Tài khoản')?'Tài khoản':page);
+ return <div className='app'><aside><div className='brand'><div className='logo'>AKC</div><div><h1>AKC CRM</h1><p>Cloud v8</p></div></div><div className='mobile-user'><button className='user-pill' onClick={()=>setUserMenu(!userMenu)}><span>{(profile.full_name||'U').slice(0,1).toUpperCase()}</span></button>{userMenu&&<div className='user-menu'><strong>{profile.full_name}</strong><small>{profile.role}</small><button onClick={()=>setPasswordModal({})}>Đổi mật khẩu</button><button onClick={()=>supabase.auth.signOut()}>Đăng xuất</button></div>}</div><nav>{nav.map(n=><button key={n} className={base===n.split(' (')[0]?'active':''} onClick={()=>setPage(n.split(' (')[0])}>{n}</button>)}</nav><div className='me'><b>{profile.full_name}</b><span>{profile.role} {profile.branch_id?'· '+bname(branches,profile.branch_id):''}</span><button onClick={()=>setPasswordModal({})}>Đổi mật khẩu</button><button onClick={()=>supabase.auth.signOut()}>Đăng xuất</button></div></aside><main><header><div><h2>{base}</h2><p>{isAdmin?'Admin toàn hệ thống':isManager?'Manager cơ sở':'Sale cá nhân'} · Supabase realtime</p></div><div><input ref={fileInputRef} type='file' accept='.csv' style={{display:'none'}} onChange={importData}/>{(isAdmin||isManager)&&base!=='BOARD'&&<><button onClick={()=>fileInputRef.current?.click()}>Nhập CSV</button><button onClick={exportData}>Xuất CSV</button></>}{base==='BOARD'?<button className='primary' onClick={()=>setBoardModal({})}>+ Tạo board</button>:base==='Lịch hẹn'?<button className='primary' onClick={()=>setCalendarModal({})}>+ Thêm lịch hẹn</button>:base==='Show PT'?<button className='primary' onClick={()=>setModal({type:'teaching_show'})}>+ Đăng ký show PT</button>:<button className='primary' onClick={()=>setModal({})}>+ Thêm lead</button>}</div></header>{!isPT&&<Filters filter={filter} setFilter={setFilter} branches={avBranches} users={avUsers}/>}{base==='Tổng quan'&&<Dashboard leads={rows} branches={avBranches} users={avUsers}/>} {base==='Lead'&&<Lead leads={rows} branches={branches} users={users} edit={setModal} del={delLead} isAdmin={isAdmin}/>} {base==='Pipeline'&&<Pipeline leads={rows} branches={branches} users={users} setStatus={status}/>} {base==='Lịch hẹn'&&<Calendar leads={rows} branches={branches} users={users} add={()=>setCalendarModal({})}/>} {base==='BOARD'&&<BoardPage boards={visibleBoards} lists={boardLists} cards={boardCards} checks={cardChecks} comments={cardComments} users={users} profile={profile} selectedBoard={selectedBoard} setSelectedBoard={setSelectedBoard} setBoardModal={setBoardModal} setCardModal={openCardModal} addList={addBoardList} renameList={renameBoardList} delList={delBoardList} delBoard={delBoard} moveCard={moveBoardCard} dragCard={dragCard}/>} {base==='Show PT'&&<TeachingShows shows={ptShows} branches={branches} users={users} profile={profile} edit={setModal} complete={completePtShow} approve={approvePtShow} reject={rejectPtShow} markInvoice={markKiotInvoice} deleteShow={deletePtShow}/>} {base==='Báo cáo'&&<Reports leads={rows} branches={branches} users={users}/>}  {base==='Cơ sở'&&isAdmin&&<Branches branches={branches} reload={()=>load(true)}/>} {base==='Tài khoản'&&isAdmin&&<Users users={users} branches={branches} reload={()=>load(true)}/>} {base==='Zalo/Facebook'&&<Panel title='Zalo/Facebook' text='Sẵn sàng nối Zalo OA, Facebook Lead Form, Hotline ở bản tiếp theo.'/>} {base==='Kế Hoạch'&&<TrainingPlanWizard profile={profile}/>}</main>{modal&&(modal.type==='teaching_show'?<PtShowModal initial={modal} branches={avBranches} users={users.filter(u=>u.role==='pt'||u.role==='manager'||u.role==='admin')} profile={profile} onClose={()=>setModal(null)} onSave={savePtShow}/>:<LeadModal initial={modal} branches={avBranches} users={avUsers} profile={profile} onClose={()=>setModal(null)} onSave={saveLead}/>)} {calendarModal&&<AppointmentModal initial={calendarModal} branches={avBranches} users={avUsers} profile={profile} onClose={()=>setCalendarModal(null)} onSave={saveAppointment}/>} {taskModal&&<TaskModal initial={taskModal} branches={avBranches} users={avUsers} leads={leads} profile={profile} onClose={()=>setTaskModal(null)} onSave={saveTask}/>} {boardModal&&<BoardModal initial={boardModal} branches={avBranches} profile={profile} onClose={()=>setBoardModal(null)} onSave={saveBoard}/>} {cardModal&&<BoardCardModal initial={cardModal} lists={boardLists.filter(l=>l.board_id===(cardModal.board_id||selectedBoard))} users={users} checks={cardChecks.filter(c=>c.card_id===cardModal.id)} comments={cardComments.filter(c=>c.card_id===cardModal.id)} profile={profile} onClose={()=>setCardModal(null)} onSave={saveBoardCard} onDelete={delBoardCard} toggleCheck={toggleCheck} updateCheckText={updateCheckText} deleteCheck={deleteCheck} addComment={addComment} updateComment={updateComment} deleteComment={deleteComment}/>} {passwordModal&&<PasswordModal onClose={()=>setPasswordModal(null)} onSave={changeOwnPassword}/>}</div>}
 function Setup(){return <Splash text='Chưa cấu hình Supabase. Thêm VITE_SUPABASE_URL và VITE_SUPABASE_ANON_KEY trong Vercel.'/>}
 function Splash({text}){return <div className='login'><div className='card'><div className='logo big'>AKC</div><h1>AKC CRM v8</h1><p>{text}</p></div></div>}
 function Pending({profile}){return <div className='login'><div className='card'><div className='logo big'>AKC</div><h1>Đang chờ duyệt</h1><p>{profile?.email||''} chưa được Admin duyệt hoặc đang bị khóa.</p><button className='primary full' onClick={()=>supabase.auth.signOut()}>Đăng xuất</button></div></div>}
@@ -483,4 +483,130 @@ function BoardCardModal({initial,lists,users,checks,comments,profile,onClose,onS
   </form>
  </div>}
 
+const TRAINING_PLAN_WEBHOOK='https://n8n.kickfits.info/webhook/akc-training-plan';
+function TrainingPlanWizard({profile}){
+ const[step,setStep]=useState(1);
+ const[status,setStatus]=useState('idle'); // idle | loading | success | error
+ const[f,setF]=useState({name:'',phone:'',email:'',age:'',gender:'',height:'',weight:'',goal:'',training_type:'',course_weeks:'',package_sessions:'',training_days:[],health_notes:''});
+ const[errors,setErrors]=useState({});
+ function set(k,v){setF(p=>({...p,[k]:v}));setErrors(p=>({...p,[k]:''}))} 
+ function validatePhone(p){return /^(0[3|5|7|8|9])[0-9]{8}$/.test(p.trim())}
+ function validateStep1(){
+  const e={};
+  if(!f.name.trim())e.name='Vui lòng nhập họ và tên';
+  if(!f.phone.trim())e.phone='Vui lòng nhập số điện thoại';
+  else if(!validatePhone(f.phone))e.phone='Số điện thoại không đúng định dạng Việt Nam';
+  if(!f.email.trim())e.email='Vui lòng nhập email';
+  else if(!/^[^@]+@[^@]+\.[^@]+$/.test(f.email))e.email='Email không đúng định dạng';
+  setErrors(e);return Object.keys(e).length===0;
+ }
+ function validateStep2(){
+  const e={};
+  if(!f.age)e.age='Vui lòng nhập tuổi';
+  else if(Number(f.age)<15||Number(f.age)>80)e.age='Tuổi phải từ 15 đến 80';
+  if(!f.gender)e.gender='Vui lòng chọn giới tính';
+  if(!f.height)e.height='Vui lòng nhập chiều cao';
+  else if(Number(f.height)<130||Number(f.height)>220)e.height='Chiều cao phải từ 130 đến 220 cm';
+  if(!f.weight)e.weight='Vui lòng nhập cân nặng';
+  else if(Number(f.weight)<35||Number(f.weight)>200)e.weight='Cân nặng phải từ 35 đến 200 kg';
+  setErrors(e);return Object.keys(e).length===0;
+ }
+ function validateStep3(){
+  const e={};
+  if(!f.goal)e.goal='Vui lòng chọn mục tiêu';
+  if(!f.training_type)e.training_type='Vui lòng chọn hình thức tập';
+  if(!f.course_weeks)e.course_weeks='Vui lòng nhập số tuần tập';
+  else if(Number(f.course_weeks)<1||Number(f.course_weeks)>52)e.course_weeks='Số tuần tập từ 1 đến 52';
+  if(f.training_days.length===0)e.training_days='Vui lòng chọn ít nhất 1 ngày tập';
+  setErrors(e);return Object.keys(e).length===0;
+ }
+ function toggleDay(d){
+  setF(p=>({...p,training_days:p.training_days.includes(d)?p.training_days.filter(x=>x!==d):[...p.training_days,d].sort((a,b)=>a-b)}));
+  setErrors(p=>({...p,training_days:''}));
+ }
+ async function submit(e){
+  e.preventDefault();
+  if(!validateStep3())return;
+  setStatus('loading');
+  const today=new Date();const dd=String(today.getDate()).padStart(2,'0'),mm=String(today.getMonth()+1).padStart(2,'0'),yyyy=today.getFullYear();
+  const payload={name:f.name.trim(),phone:f.phone.trim(),email:f.email.trim(),age:Number(f.age),gender:f.gender,height:Number(f.height),weight:Number(f.weight),goal:f.goal,training_type:f.training_type,course_weeks:Number(f.course_weeks),package_sessions:f.package_sessions?Number(f.package_sessions):null,training_days:f.training_days,sessions_per_week:f.training_days.length,health_notes:f.health_notes.trim(),coach:profile.full_name||profile.email||'HLV',date:`${dd}/${mm}/${yyyy}`};
+  try{
+   const res=await fetch(TRAINING_PLAN_WEBHOOK,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+   if(!res.ok)throw new Error('HTTP '+res.status);
+   setStatus('success');
+  }catch(err){
+   console.error('Training plan webhook error:',err);
+   setStatus('error');
+  }
+ }
+ const DAYS=[{v:2,l:'Thứ 2'},{v:3,l:'Thứ 3'},{v:4,l:'Thứ 4'},{v:5,l:'Thứ 5'},{v:6,l:'Thứ 6'},{v:7,l:'Thứ 7'},{v:8,l:'CN'}];
+ if(status==='success')return(
+  <div className='training-plan-page'>
+   <div className='tp-success'>
+    <div className='tp-success-icon'>✓</div>
+    <h2>Tạo kế hoạch thành công!</h2>
+    <p>Đã tạo và gửi kế hoạch cho học viên thành công.</p>
+    <button className='primary' onClick={()=>{setStatus('idle');setStep(1);setF({name:'',phone:'',email:'',age:'',gender:'',height:'',weight:'',goal:'',training_type:'',course_weeks:'',package_sessions:'',training_days:[],health_notes:''})}}>Tạo kế hoạch mới</button>
+   </div>
+  </div>
+ );
+ return(
+  <div className='training-plan-page'>
+   <div className='tp-card'>
+    <div className='tp-header'>
+     <h2>TẠO KẾ HOẠCH TẬP LUYỆN &amp; DINH DƯỠNG</h2>
+     <p>Hệ thống AI sẽ tự động tính toán và tạo kế hoạch chi tiết</p>
+    </div>
+    <div className='tp-progress'>
+     {[1,2,3].map(s=>(
+      <div key={s} className={`tp-step${step>=s?' active':''}${step>s?' done':''}`}>
+       <div className='tp-step-dot'>{step>s?'✓':s}</div>
+       <span>{s===1?'Thông tin học viên':s===2?'Thể trạng':'Mục tiêu & Lịch tập'}</span>
+      </div>
+     ))}
+    </div>
+    {step===1&&(
+     <div className='tp-body'>
+      <h3>Bước 1/3 — Thông tin học viên</h3>
+      <label>Họ và tên <span className='req'>*</span><input value={f.name} onChange={e=>set('name',e.target.value)} placeholder='Nguyễn Văn An'/>{errors.name&&<span className='tp-err'>{errors.name}</span>}</label>
+      <label>Số điện thoại <span className='req'>*</span><input value={f.phone} onChange={e=>set('phone',e.target.value)} placeholder='0981234567'/>{errors.phone&&<span className='tp-err'>{errors.phone}</span>}</label>
+      <label>Email nhận kế hoạch <span className='req'>*</span><input type='email' value={f.email} onChange={e=>set('email',e.target.value)} placeholder='example@gmail.com'/>{errors.email&&<span className='tp-err'>{errors.email}</span>}</label>
+      <div className='tp-actions'><button className='primary full' onClick={()=>{if(validateStep1())setStep(2)}}>Tiếp tục →</button></div>
+     </div>
+    )}
+    {step===2&&(
+     <div className='tp-body'>
+      <h3>Bước 2/3 — Thể trạng hiện tại</h3>
+      <label>Tuổi <span className='req'>*</span><input type='number' value={f.age} onChange={e=>set('age',e.target.value)} min={15} max={80} placeholder='25'/>{errors.age&&<span className='tp-err'>{errors.age}</span>}</label>
+      <label>Giới tính <span className='req'>*</span><select value={f.gender} onChange={e=>set('gender',e.target.value)}><option value=''>-- Chọn giới tính --</option><option>Nam</option><option>Nữ</option></select>{errors.gender&&<span className='tp-err'>{errors.gender}</span>}</label>
+      <label>Chiều cao (cm) <span className='req'>*</span><input type='number' value={f.height} onChange={e=>set('height',e.target.value)} min={130} max={220} placeholder='170'/>{errors.height&&<span className='tp-err'>{errors.height}</span>}</label>
+      <label>Cân nặng (kg) <span className='req'>*</span><input type='number' value={f.weight} onChange={e=>set('weight',e.target.value)} min={35} max={200} placeholder='65'/>{errors.weight&&<span className='tp-err'>{errors.weight}</span>}</label>
+      <div className='tp-actions'><button className='ghost' onClick={()=>setStep(1)}>← Quay lại</button><button className='primary' onClick={()=>{if(validateStep2())setStep(3)}}>Tiếp tục →</button></div>
+     </div>
+    )}
+    {step===3&&(
+     <form className='tp-body' onSubmit={submit}>
+      <h3>Bước 3/3 — Mục tiêu, Khóa tập &amp; Lịch tập</h3>
+      <label>Mục tiêu chính <span className='req'>*</span><select value={f.goal} onChange={e=>set('goal',e.target.value)}><option value=''>-- Chọn mục tiêu --</option><option>Giảm mỡ</option><option>Tăng cơ</option><option>Giảm mỡ tăng cơ</option><option>Tăng cân</option><option>Cải thiện thể lực</option></select>{errors.goal&&<span className='tp-err'>{errors.goal}</span>}</label>
+      <label>Hình thức tập <span className='req'>*</span><select value={f.training_type} onChange={e=>set('training_type',e.target.value)}><option value=''>-- Chọn hình thức --</option><option>Cá nhân</option><option>Nhóm</option></select>{errors.training_type&&<span className='tp-err'>{errors.training_type}</span>}</label>
+      <label>Số tuần tập <span className='req'>*</span><input type='number' value={f.course_weeks} onChange={e=>set('course_weeks',e.target.value)} min={1} max={52} placeholder='Ví dụ: 8, 12, 24'/>{errors.course_weeks&&<span className='tp-err'>{errors.course_weeks}</span>}</label>
+      <label>Số buổi đã mua<input type='number' value={f.package_sessions} onChange={e=>set('package_sessions',e.target.value)} min={1} placeholder='Để trống nếu không có'/></label>
+      <div className='tp-field'>
+       <label className='tp-label'>Ngày tập dự kiến <span className='req'>*</span></label>
+       <div className='tp-days'>{DAYS.map(d=>(<label key={d.v} className={`tp-day${f.training_days.includes(d.v)?' selected':''}`}><input type='checkbox' checked={f.training_days.includes(d.v)} onChange={()=>toggleDay(d.v)} style={{display:'none'}}/>{d.l}</label>))}</div>
+       {errors.training_days&&<span className='tp-err'>{errors.training_days}</span>}
+      </div>
+      <label>Ghi chú sức khỏe hoặc chấn thương<textarea value={f.health_notes} onChange={e=>set('health_notes',e.target.value)} rows={3} placeholder='Ví dụ: đau gối, đau lưng, đau vai, bệnh nền hoặc chấn thương. Để trống nếu không có.'/></label>
+      {status==='error'&&<div className='tp-error-msg'>Không thể tạo kế hoạch. Vui lòng kiểm tra thông tin và thử lại.</div>}
+      <div className='tp-actions'>
+       <button type='button' className='ghost' onClick={()=>setStep(2)}>← Quay lại</button>
+       <button type='submit' className='primary tp-submit' disabled={status==='loading'}>{status==='loading'?'Đang tạo kế hoạch...':'TẠO KẾ HOẠCH'}</button>
+      </div>
+      {status==='loading'&&<p className='tp-loading-msg'>Hệ thống đang tạo kế hoạch, vui lòng chờ...</p>}
+     </form>
+    )}
+   </div>
+  </div>
+ );
+}
 createRoot(document.getElementById('root')).render(<App/>);
