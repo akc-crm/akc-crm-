@@ -144,7 +144,8 @@ const{data:oldChecks}=await supabase.from('card_checklists').select('text,positi
    description:f.description||''
   };
   const q=f.id?supabase.from('pt_checklists').update(row).eq('id',f.id):supabase.from('pt_checklists').insert({...row,created_by:profile.id});
-  const{error}=await q;if(error)return alert(error.message);setModal(null);load(true)
+  const{error}=await q;if(error)return alert(error.message);setModal(null);
+  reloadPtShows()
  }
  async function completePtShow(id){
   const show=ptShows.find(x=>x.id===id);
@@ -152,59 +153,33 @@ const{data:oldChecks}=await supabase.from('card_checklists').select('text,positi
   const{data,error}=await supabase.rpc('mark_pt_show_completed',{show_id:id});
   if(error)return alert(error.message);
 
-  // Gọi trực tiếp webhook n8n sau khi CRM update trạng thái thành công
-  // Production webhook URL (workflow đã active)
+  // Fix 2: fire-and-forget - gọi webhook không await, không block UI
   const webhook='https://n8n.kickfits.info/webhook/crm-show-pt-status';
-  try{
-    const res=await fetch(webhook,{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        event:'show_status_changed',
-        show_id:show.id||id,
-        show_code:show.show_crm_code||show.show_code||show.id||id,
-        status:'completed_pending_approval',
-        customer_name:show.customer_name||show.title||'',
-        kiot_customer_id:show.kiot_customer_id||'',
-        pt_id:show.pt_id||'',
-        pt_name:show.pt_name||profile.full_name||'',
-        kiot_employee_id:show.kiot_employee_id||'',
-        branch_id:show.branch_id||'',
-        branch_name:show.branch_name||'',
-        show_date:show.show_date||'',
-        start_time:show.start_time||'',
-        end_time:show.end_time||'',
-        service_name:show.service_product_name||show.service_name||'',
-        service_id:show.service_product_id||show.service_id||'',
-        price:Number(show.price||0),
-        note:show.description||show.note||'',
-        completed_at:new Date().toISOString()
-      })
-    });
-        if(!res.ok){
-      const txt=await res.text().catch(()=>String(res.status));
-      console.warn('N8N webhook response error',res.status,txt);
-      // Không alert lỗi webhook - CRM đã lưu thành công, n8n sẽ tự xử lý sau
-    }
-  }catch(_e){
-    console.warn('N8N webhook failed',_e);
-    // Không alert lỗi kết nối - CRM đã lưu thành công
-  }
+  fetch(webhook,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({event:'show_status_changed',show_id:show.id||id,show_code:show.show_crm_code||show.show_code||show.id||id,status:'completed_pending_approval',customer_name:show.customer_name||show.title||'',kiot_customer_id:show.kiot_customer_id||'',pt_id:show.pt_id||'',pt_name:show.pt_name||profile.full_name||'',kiot_employee_id:show.kiot_employee_id||'',branch_id:show.branch_id||'',branch_name:show.branch_name||'',show_date:show.show_date||'',start_time:show.start_time||'',end_time:show.end_time||'',service_name:show.service_product_name||show.service_name||'',service_id:show.service_product_id||show.service_id||'',price:Number(show.price||0),note:show.description||show.note||'',completed_at:new Date().toISOString()})}).catch(()=>{});
+  // Optimistic update ngay lập tức + Fix 1: reloadPtShows thay vì load(true)
+  setPtShows(prev=>prev.map(s=>s.id===id?{...s,show_status:'completed_pending_approval'}:s));
   alert('Đã chuyển sang trạng thái Chờ duyệt. Quản lý sẽ nhận thông báo Telegram.');
-  load(true)
+  reloadPtShows()
  }
  async function approvePtShow(id){
   const show=ptShows.find(x=>x.id===id);
   if(!show||!canApprovePtShow(show))return alert('Chỉ manager/admin đúng quyền mới được duyệt show này.');
+  // Fix 3: Optimistic update ngay, rollback nếu lỗi
+  const prevShows=ptShows;
+  setPtShows(prev=>prev.map(s=>s.id===id?{...s,show_status:'approved',approved_by:profile.id,approved_by_name:profile.full_name||profile.email||'',approved_at:new Date().toISOString()}:s));
   const{error}=await supabase.rpc('approve_pt_show',{show_id:id,manager_id:profile.id,manager_name:profile.full_name||profile.email||''});
-  if(error)return alert(error.message);alert('Đã duyệt. Luồng Telegram/Kiot có thể bắt trạng thái approved để tạo hóa đơn.');load(true)
+  if(error){setPtShows(prevShows);return alert(error.message);}
+  alert('Đã duyệt. Luồng Telegram/Kiot có thể bắt trạng thái approved để tạo hóa đơn.');
+  reloadPtShows()
  }
  async function rejectPtShow(id){
   const show=ptShows.find(x=>x.id===id);
   if(!show||!(isAdmin||(isManager&&(!managerBranches.length||managerCanAccessBranch(show.branch_id)))))return alert('Chỉ manager/admin đúng quyền mới được từ chối show này.');
   const reason=prompt('Lý do từ chối')||'Không đạt yêu cầu';
   const{error}=await supabase.from('pt_checklists').update({show_status:'rejected',rejected_by:profile.id,rejected_by_name:profile.full_name||profile.email||'',rejected_at:new Date().toISOString(),reject_reason:reason,updated_at:new Date().toISOString()}).eq('id',id);
-  if(error)return alert(error.message);load(true)
+  if(error)return alert(error.message);
+  setPtShows(prev=>prev.map(s=>s.id===id?{...s,show_status:'rejected',reject_reason:reason}:s));
+  reloadPtShows()
  }
  async function markKiotInvoice(show){
   if(!(isAdmin||isManager))return alert('Chỉ manager/admin được lưu mã hóa đơn Kiot.');
@@ -212,13 +187,17 @@ const{data:oldChecks}=await supabase.from('card_checklists').select('text,positi
   const code=prompt('Mã hóa đơn Kiot',show.kiot_invoice_code||'');
   if(!code)return;
   const{error}=await supabase.rpc('mark_pt_show_kiot_invoice_created',{show_id:show.id,invoice_id:code,invoice_code:code});
-  if(error)return alert(error.message);load(true)
+  if(error)return alert(error.message);
+  setPtShows(prev=>prev.map(s=>s.id===show.id?{...s,kiot_invoice_code:code,show_status:'kiot_invoice_created'}:s));
+  reloadPtShows()
  }
  async function deletePtShow(id){
   if(!isAdmin)return alert('Chỉ Admin mới được xóa show PT.');
   if(!confirm('Xác nhận xóa show PT này? Hành động không thể hoàn tác.'))return;
   const{error}=await supabase.from('pt_checklists').delete().eq('id',id);
-  if(error)return alert(error.message);load(true)
+  if(error)return alert(error.message);
+  setPtShows(prev=>prev.filter(s=>s.id!==id));
+  reloadPtShows()
  }
  const visibleBoards=isStaff?boards.filter(b=>b.branch_id===profile.branch_id):boards;
  const base=isPT&&!['BOARD','Show PT'].includes(page)?'BOARD':(page.startsWith('Tài khoản')?'Tài khoản':page);
