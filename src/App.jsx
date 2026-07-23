@@ -19,7 +19,7 @@ function App(){
  const[filter,setFilter]=useState({branch_id:'',source:'',owner_id:'',date_from:'',date_to:'',q:''});
  if(!isSupabaseConfigured)return <Setup/>;
  useEffect(()=>{supabase.auth.getSession().then(({data})=>{setSession(data.session);});const{data:s}=supabase.auth.onAuthStateChange((event,ss)=>{setSession(ss);if(event==='PASSWORD_RECOVERY'){setIsRecovery(true);}else if(event==='SIGNED_IN'||event==='SIGNED_OUT'){setIsRecovery(false);}});return()=>s.subscription.unsubscribe()},[]);
- async function load(silent=false){if(!silent)setLoading(true);const{data:bs}=await supabase.from('branches').select('*').order('name');setBranches(bs||[]);if(session?.user){const{data:p}=await supabase.from('profiles').select('*').eq('id',session.user.id).single();setProfile(p||null);const{data:us}=await supabase.from('profiles').select('*').order('created_at',{ascending:false});setUsers(us||[]);const{data:ls}=await supabase.from('leads').select('*').order('created_at',{ascending:false}).limit(500);setLeads(ls||[]);const{data:ts}=await supabase.from('operation_tasks').select('*').order('created_at',{ascending:false});setTasks(ts||[]);
+ async function load(silent=false){if(!silent)setLoading(true);const{data:bs}=await supabase.from('branches').select('*').order('name');setBranches(bs||[]);if(session?.user){const{data:p}=await supabase.from('profiles').select('*').eq('id',session.user.id).single();setProfile(p||null);const{data:us}=await supabase.from('profiles').select('*').order('created_at',{ascending:false});setUsers(us||[]);let lq=supabase.from('leads').select('*').order('created_at',{ascending:false}).limit(500);if(filter.date_from)lq=lq.gte('created_at',filter.date_from);if(filter.date_to)lq=lq.lte('created_at',filter.date_to+'T23:59:59');const{data:ls}=await lq;setLeads(ls||[]);const{data:ts}=await supabase.from('operation_tasks').select('*').order('created_at',{ascending:false});setTasks(ts||[]);
 try{
  let sq=supabase.from('pt_checklists').select('*').eq('item_type','teaching_show').order('show_date',{ascending:false}).order('start_time',{ascending:false});
  if(p?.role==='pt')sq=sq.eq('pt_id',p.id);
@@ -33,9 +33,10 @@ try{
   // Chỉ load checklist của tất cả card nhưng chỉ lấy id, card_id, done để hiển thị progress bar (không lấy text)
   const{data:cc}=await supabase.from('card_checklists').select('id,card_id,done,position').order('position',{ascending:true});setCardChecks(cc||[])}
  useEffect(()=>{load(false)},[session?.user?.id]);
+ useEffect(()=>{if(!session?.user)return;let lq=supabase.from('leads').select('*').order('created_at',{ascending:false}).limit(500);if(filter.date_from)lq=lq.gte('created_at',filter.date_from);if(filter.date_to)lq=lq.lte('created_at',filter.date_to+'T23:59:59');lq.then(({data})=>setLeads(data||[]))},[filter.date_from,filter.date_to,session?.user?.id]);
  useEffect(()=>{if(session?.user&&page==='BOARD')loadBoard()},[page,session?.user?.id]);
  useEffect(()=>{if(!session?.user)return;
-  const reloadLeads=()=>supabase.from('leads').select('*').order('created_at',{ascending:false}).limit(500).then(({data})=>setLeads(data||[]));
+  const reloadLeads=()=>{let lq=supabase.from('leads').select('*').order('created_at',{ascending:false}).limit(500);const cf=filter;if(cf.date_from)lq=lq.gte('created_at',cf.date_from);if(cf.date_to)lq=lq.lte('created_at',cf.date_to+'T23:59:59');lq.then(({data})=>setLeads(data||[]));};
   const reloadProfiles=()=>{supabase.from('profiles').select('*').eq('id',session.user.id).single().then(({data})=>setProfile(data));supabase.from('profiles').select('*').order('created_at',{ascending:false}).then(({data})=>setUsers(data||[]));};
   const reloadBranches=()=>supabase.from('branches').select('*').order('name').then(({data})=>setBranches(data||[]));
   const reloadTasks=()=>supabase.from('operation_tasks').select('*').order('created_at',{ascending:false}).then(({data})=>setTasks(data||[]));
