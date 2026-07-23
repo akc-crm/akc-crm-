@@ -486,9 +486,10 @@ function BoardCardModal({initial,lists,users,checks,comments,profile,onClose,onS
 const TRAINING_PLAN_WEBHOOK='https://n8n.kickfits.info/webhook/akc-training-plan';
 function TrainingPlanWizard({profile}){
  const[step,setStep]=useState(1);
- const[status,setStatus]=useState('idle'); // idle | loading | success | error
+ const[status,setStatus]=useState('idle'); // idle | loading | success | error | timeout
  const[f,setF]=useState({name:'',phone:'',email:'',age:'',gender:'',height:'',weight:'',goal:'',training_type:'',course_weeks:'',package_sessions:'',training_days:[],health_notes:''});
  const[errors,setErrors]=useState({});
+ const[result,setResult]=useState(null);
  function set(k,v){setF(p=>({...p,[k]:v}));setErrors(p=>({...p,[k]:''}))} 
  function validatePhone(p){return /^(0[3|5|7|8|9])[0-9]{8}$/.test(p.trim())}
  function validateStep1(){
@@ -531,22 +532,40 @@ function TrainingPlanWizard({profile}){
   const today=new Date();const dd=String(today.getDate()).padStart(2,'0'),mm=String(today.getMonth()+1).padStart(2,'0'),yyyy=today.getFullYear();
   const payload={name:f.name.trim(),phone:f.phone.trim(),email:f.email.trim(),age:Number(f.age),gender:f.gender,height:Number(f.height),weight:Number(f.weight),goal:f.goal,training_type:f.training_type,course_weeks:Number(f.course_weeks),package_sessions:f.package_sessions?Number(f.package_sessions):null,training_days:f.training_days,sessions_per_week:f.training_days.length,health_notes:f.health_notes.trim(),coach:profile.full_name||profile.email||'HLV',date:`${dd}/${mm}/${yyyy}`};
   try{
-   const res=await fetch(TRAINING_PLAN_WEBHOOK,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+   const controller=new AbortController();
+   const timer=setTimeout(()=>controller.abort(),120000);
+   const res=await fetch(TRAINING_PLAN_WEBHOOK,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal:controller.signal});
+   clearTimeout(timer);
    if(!res.ok)throw new Error('HTTP '+res.status);
+   const data=await res.json().catch(()=>({}));
+   setResult(data);
    setStatus('success');
   }catch(err){
    console.error('Training plan webhook error:',err);
-   setStatus('error');
+   if(err.name==='AbortError')setStatus('timeout');
+   else setStatus('error');
   }
  }
  const DAYS=[{v:2,l:'Thứ 2'},{v:3,l:'Thứ 3'},{v:4,l:'Thứ 4'},{v:5,l:'Thứ 5'},{v:6,l:'Thứ 6'},{v:7,l:'Thứ 7'},{v:8,l:'CN'}];
+ const resetForm=()=>{setStatus('idle');setStep(1);setResult(null);setF({name:'',phone:'',email:'',age:'',gender:'',height:'',weight:'',goal:'',training_type:'',course_weeks:'',package_sessions:'',training_days:[],health_notes:''});setErrors({});};
+ if(status==='timeout')return(
+  <div className='training-plan-page'>
+   <div className='tp-success' style={{background:'#fff8e1',borderColor:'#f59e0b'}}>
+    <div className='tp-success-icon' style={{background:'#f59e0b'}}>⏳</div>
+    <h2 style={{color:'#b45309'}}>AI đang xử lý...</h2>
+    <p>Hệ thống AI đang tạo kế hoạch cho <strong>{f.name}</strong>.<br/>Kế hoạch sẽ được gửi qua email <strong>{f.email}</strong> trong vài phút.</p>
+    <button className='primary' onClick={resetForm}>Tạo kế hoạch mới</button>
+   </div>
+  </div>
+ );
  if(status==='success')return(
   <div className='training-plan-page'>
    <div className='tp-success'>
     <div className='tp-success-icon'>✓</div>
     <h2>Tạo kế hoạch thành công!</h2>
-    <p>Đã tạo và gửi kế hoạch cho học viên thành công.</p>
-    <button className='primary' onClick={()=>{setStatus('idle');setStep(1);setF({name:'',phone:'',email:'',age:'',gender:'',height:'',weight:'',goal:'',training_type:'',course_weeks:'',package_sessions:'',training_days:[],health_notes:''})}}>Tạo kế hoạch mới</button>
+    <p>Kế hoạch tập luyện &amp; dinh dưỡng cho <strong>{f.name}</strong> đã được tạo và gửi qua email <strong>{result?.email||f.email}</strong>.</p>
+    <p style={{fontSize:'0.85rem',color:'#6b7280',marginTop:'0.5rem'}}>Học viên vui lòng kiểm tra hộp thư (kể cả thư mục Spam).</p>
+    <button className='primary' onClick={resetForm}>Tạo kế hoạch mới</button>
    </div>
   </div>
  );
