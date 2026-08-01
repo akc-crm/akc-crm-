@@ -1,4 +1,4 @@
-import React,{useEffect,useMemo,useRef,useState}from'react';
+import React,{useEffect,useRef,useState}from'react';
 import{createRoot}from'react-dom/client';
 import{supabase,isSupabaseConfigured}from'./supabaseClient';
 import'./style.css';
@@ -29,9 +29,9 @@ try{
 }catch(_e){setPtShows([])}
 }if(!silent)setLoading(false)}
  async function loadBoard(boardIdOverride){// Fix: load cards theo board đang chọn, tránh load toàn bộ
-  const[{data:bd},{data:bl}]=await Promise.all([supabase.from('boards').select('*').order('position',{ascending:true}).order('created_at',{ascending:true}),supabase.from('board_lists').select('*').order('position',{ascending:true})]);setBoards(bd||[]);const targetBoard=boardIdOverride||(selectedBoard&&(bd||[]).find(b=>b.id===selectedBoard)?selectedBoard:null)||((bd||[])[0]?.id)||'';if(targetBoard&&!(selectedBoard&&(bd||[]).find(b=>b.id===selectedBoard)))setSelectedBoard(targetBoard);if(!targetBoard)return;const[{data:bc},{data:cm}]=await Promise.all([supabase.from('board_cards').select('*').eq('board_id',targetBoard).order('position',{ascending:true}).order('created_at',{ascending:true}),supabase.from('card_comments').select('*').order('created_at',{ascending:true})]);setBoardLists(bl||[]);setBoardCards(bc||[]);setCardComments(cm||[]);
-  // Chỉ load checklist của cards trong board đang chọn
-  if((bc||[]).length){const cardIds=(bc||[]).map(c=>c.id);const{data:cc}=await supabase.from('card_checklists').select('id,card_id,done,position').in('card_id',cardIds).order('position',{ascending:true});setCardChecks(cc||[]);}else{setCardChecks([])}}
+  const[{data:bd},{data:bl}]=await Promise.all([supabase.from('boards').select('*').order('position',{ascending:true}).order('created_at',{ascending:true}),supabase.from('board_lists').select('*').order('position',{ascending:true})]);setBoards(bd||[]);const targetBoard=boardIdOverride||(selectedBoard&&(bd||[]).find(b=>b.id===selectedBoard)?selectedBoard:null)||((bd||[])[0]?.id)||'';if(targetBoard&&!(selectedBoard&&(bd||[]).find(b=>b.id===selectedBoard)))setSelectedBoard(targetBoard);if(!targetBoard)return;const{data:bc}=await supabase.from('board_cards').select('*').eq('board_id',targetBoard).order('position',{ascending:true}).order('created_at',{ascending:true});setBoardLists(bl||[]);setBoardCards(bc||[]);
+  // Chỉ load checklist và comments của cards trong board đang chọn
+  if((bc||[]).length){const cardIds=(bc||[]).map(c=>c.id);const[{data:cc},{data:cm}]=await Promise.all([supabase.from('card_checklists').select('id,card_id,done,position').in('card_id',cardIds).order('position',{ascending:true}),supabase.from('card_comments').select('*').in('card_id',cardIds).order('created_at',{ascending:true})]);setCardChecks(cc||[]);setCardComments(cm||[]);}else{setCardChecks([]);setCardComments([])}}
  useEffect(()=>{load(false)},[session?.user?.id]);
  useEffect(()=>{if(!session?.user)return;let lq=supabase.from('leads').select('*').order('created_at',{ascending:false}).limit(500);if(filter.date_from)lq=lq.gte('created_at',filter.date_from);if(filter.date_to)lq=lq.lte('created_at',filter.date_to+'T23:59:59');lq.then(({data})=>setLeads(data||[]))},[filter.date_from,filter.date_to,session?.user?.id]);
  useEffect(()=>{if(session?.user&&page==='BOARD')loadBoard(selectedBoard||undefined)},[page,session?.user?.id]);

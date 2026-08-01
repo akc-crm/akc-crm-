@@ -19,7 +19,7 @@ export function allowCors(req, res) {
 
 export function requireApiKey(req, res) {
   const expected = process.env.AKC_CRM_API_KEY;
-  if (!expected) return true; // nếu chưa khai báo thì tạm mở, nhưng production nên khai báo
+  if (!expected) { json(res, 500, { success: false, error: 'Server misconfiguration: AKC_CRM_API_KEY not set' }); return false; }
   const got = req.headers['x-akc-api-key'];
   if (got !== expected) {
     json(res, 401, { success: false, error: 'Unauthorized: invalid x-akc-api-key' });

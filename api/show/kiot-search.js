@@ -1,9 +1,9 @@
 import { allowCors, json } from './_supabaseAdmin.js';
 
-// Kiot credentials (stored here for Vercel serverless, ideally use env vars)
-const KIOT_CLIENT_ID = process.env.KIOT_CLIENT_ID || 'c939167c-5ff1-4dd4-b4a8-b15487afc49e';
-const KIOT_CLIENT_SECRET = process.env.KIOT_CLIENT_SECRET || '947DF8F0855A5C4B5F05BEA847280E5FB56C18F8';
-const KIOT_RETAILER = process.env.KIOT_RETAILER || 'akcfitness';
+// Kiot credentials - must be set in Vercel Environment Variables
+const KIOT_CLIENT_ID = process.env.KIOT_CLIENT_ID;
+const KIOT_CLIENT_SECRET = process.env.KIOT_CLIENT_SECRET;
+const KIOT_RETAILER = process.env.KIOT_RETAILER;
 const KIOT_BASE_URL = 'https://public.kiotapi.com';
 const KIOT_TOKEN_URL = 'https://id.kiotviet.vn/connect/token';
 
