@@ -145,8 +145,15 @@ const{data:oldChecks}=await supabase.from('card_checklists').select('text,positi
    show_status:safeStatus,
    description:f.description||''
   };
-  const q=f.id?supabase.from('pt_checklists').update(row).eq('id',f.id):supabase.from('pt_checklists').insert({...row,created_by:profile.id});
-  const{error}=await q;if(error)return alert(error.message);setModal(null);
+  const isNew=!f.id;
+  const q=isNew?supabase.from('pt_checklists').insert({...row,created_by:profile.id}).select().single():supabase.from('pt_checklists').update(row).eq('id',f.id).select().single();
+  const{data:saved,error}=await q;if(error)return alert(error.message);setModal(null);
+  // Optimistic update: hiển thị ngay lập tức không chờ realtime
+  if(saved){
+   if(isNew)setPtShows(prev=>[saved,...prev]);
+   else setPtShows(prev=>prev.map(s=>s.id===saved.id?saved:s));
+  }
+  // Reload ở nền để đồng bộ với DB
   reloadPtShows()
  }
  async function completePtShow(id){
