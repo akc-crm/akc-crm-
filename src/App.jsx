@@ -460,8 +460,40 @@ function BoardCardModal({initial,lists,users,checks,comments,profile,onClose,onS
  useEffect(()=>{const onKey=e=>{if(e.key==='Escape')onClose()};window.addEventListener('keydown',onKey);return()=>window.removeEventListener('keydown',onKey)},[]);
  function submitComment(){if(!f.id)return alert('Anh lưu thẻ trước rồi mới bình luận được.');if(!comment.trim())return;addComment(f.id,comment);setComment('')}
  function parseChecklistInput(v){return String(v||'').split(/[\n.;]+/).map(x=>x.trim()).filter(Boolean)}
- async function pickAvatar(e){const file=e.target.files?.[0];if(!file)return;const reader=new FileReader();reader.onload=()=>set('cover_image',reader.result);reader.readAsDataURL(file)}
- function uploadCustomerImages(e){if(!f.id)return alert('Lưu thẻ trước rồi mới up ảnh KH');const files=[...(e.target.files||[])];files.forEach(file=>{const reader=new FileReader();reader.onload=()=>addComment(f.id,'IMAGE::'+reader.result);reader.readAsDataURL(file)});e.target.value=''}
+ async function pickAvatar(e){
+  const file=e.target.files?.[0];if(!file)return;
+  try{
+   const ext=file.name.split('.').pop()||'jpg';
+   const filename=`covers/${f.id||'tmp-'+Date.now()}.${ext}`;
+   const{error}=await supabase.storage.from('card-images').upload(filename,file,{upsert:true,contentType:file.type});
+   if(error)throw error;
+   const{data:urlData}=supabase.storage.from('card-images').getPublicUrl(filename);
+   set('cover_image',urlData.publicUrl);
+  }catch(err){
+   console.error('Upload cover lỗi:',err);
+   // Fallback: dùng base64 nếu Storage lỗi
+   const reader=new FileReader();reader.onload=()=>set('cover_image',reader.result);reader.readAsDataURL(file);
+  }
+ }
+ async function uploadCustomerImages(e){
+  if(!f.id)return alert('Lưu thẻ trước rồi mới up ảnh KH');
+  const files=[...(e.target.files||[])];
+  for(const file of files){
+   try{
+    const ext=file.name.split('.').pop()||'jpg';
+    const filename=`comments/${f.id}-${Date.now()}.${ext}`;
+    const{error}=await supabase.storage.from('card-comments').upload(filename,file,{upsert:true,contentType:file.type});
+    if(error)throw error;
+    const{data:urlData}=supabase.storage.from('card-comments').getPublicUrl(filename);
+    addComment(f.id,urlData.publicUrl);
+   }catch(err){
+    console.error('Upload ảnh KH lỗi:',err);
+    // Fallback: base64
+    const reader=new FileReader();reader.onload=()=>addComment(f.id,'IMAGE::'+reader.result);reader.readAsDataURL(file);
+   }
+  }
+  e.target.value='';
+ }
  const done=checks.filter(c=>c.done).length,total=checks.length,percent=total?Math.round(done/total*100):0;
  return <div className='modal board-modal light-card-modal' onMouseDown={onClose}>
   <form className='modal-card board-card-detail trello-detail-60-40' onMouseDown={e=>e.stopPropagation()} onSubmit={e=>{e.preventDefault();onSave(f)}}>
@@ -481,7 +513,7 @@ function BoardCardModal({initial,lists,users,checks,comments,profile,onClose,onS
     {total>0&&<div className='checklist trello-checks compact-checks'><div className='check-title'><h4>Checklist hiện tại</h4><span>{done}/{total} · {percent}%</span></div><div className='mini-progress'><i style={{width:percent+'%'}}></i></div>{checks.map(c=><div key={c.id} className='check-line'><input type='checkbox' checked={!!c.done} onChange={()=>toggleCheck(c.id,c.done)}/>{editingCheck===c.id?<input className='inline-check-input' autoFocus value={checkText} onChange={e=>setCheckText(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){updateCheckText(c.id,checkText);setEditingCheck(null)}}}/>:<button type='button' className={c.done?'check-text done':'check-text'} onClick={()=>{setEditingCheck(c.id);setCheckText(c.text)}}>{c.text}</button>}<div className='more-wrap'><button type='button' className='more-btn' onClick={()=>setOpenCheckMenu(openCheckMenu===c.id?null:c.id)}>⋯</button>{openCheckMenu===c.id&&<div className='more-menu'><button type='button' onClick={()=>{setEditingCheck(c.id);setCheckText(c.text);setOpenCheckMenu(null)}}>Sửa</button><button type='button' onClick={()=>{updateCheckText(c.id,checkText||c.text);setEditingCheck(null);setOpenCheckMenu(null)}}>Lưu</button><button type='button' className='danger-link' onClick={()=>{deleteCheck(c.id);setOpenCheckMenu(null)}}>Xóa</button></div>}</div></div>)}</div>}
     <div className='modal-actions'><button className='primary'>Lưu thẻ</button>{f.id&&<button type='button' className='danger' onClick={()=>onDelete(f.id)}>Xóa thẻ</button>}</div>
    </div>
-   <div className='comments detail-right'><h4>Hội thoại / Ảnh KH</h4><input ref={khFileRef} type='file' accept='image/*' multiple style={{display:'none'}} onChange={uploadCustomerImages}/><button type='button' className='upload-kh' onClick={()=>khFileRef.current?.click()}>+ Up ảnh thay đổi KH</button><div className='comment-list'>{comments.map(c=>{const u=users.find(x=>x.id===c.user_id),mine=c.user_id===profile.id||profile.role==='admin';return <div className='comment' key={c.id}><div className='comment-avatar'>{(u?.full_name||'?').slice(0,1)}</div><div className='comment-body'><div className='comment-head'><b>{uname(users,c.user_id)}</b><small>{String(c.created_at||'').slice(0,16).replace('T',' ')}</small>{mine&&<span><button type='button' onClick={()=>{setEditingComment(c.id);setCommentText(c.message)}}>Sửa</button><button type='button' onClick={()=>deleteComment(c.id)}>Xóa</button></span>}</div>{editingComment===c.id?<div className='comment-edit'><input value={commentText} onChange={e=>setCommentText(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){updateComment(c.id,commentText);setEditingComment(null)}}}/><button type='button' onClick={()=>{updateComment(c.id,commentText);setEditingComment(null)}}>Lưu</button></div>:(String(c.message||'').startsWith('IMAGE::')?<img className='comment-photo' src={c.message.slice(7)} alt='Ảnh KH'/>:<p>{c.message}</p>)}</div></div>})}</div>{f.id?<div className='comment-compose'><input value={comment} onChange={e=>setComment(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();submitComment()}}} placeholder='Viết bình luận...'/><button type='button' onClick={submitComment}>Gửi</button></div>:<small>Lưu thẻ trước để bật hội thoại.</small>}</div>
+   <div className='comments detail-right'><h4>Hội thoại / Ảnh KH</h4><input ref={khFileRef} type='file' accept='image/*' multiple style={{display:'none'}} onChange={uploadCustomerImages}/><button type='button' className='upload-kh' onClick={()=>khFileRef.current?.click()}>+ Up ảnh thay đổi KH</button><div className='comment-list'>{comments.map(c=>{const u=users.find(x=>x.id===c.user_id),mine=c.user_id===profile.id||profile.role==='admin';return <div className='comment' key={c.id}><div className='comment-avatar'>{(u?.full_name||'?').slice(0,1)}</div><div className='comment-body'><div className='comment-head'><b>{uname(users,c.user_id)}</b><small>{String(c.created_at||'').slice(0,16).replace('T',' ')}</small>{mine&&<span><button type='button' onClick={()=>{setEditingComment(c.id);setCommentText(c.message)}}>Sửa</button><button type='button' onClick={()=>deleteComment(c.id)}>Xóa</button></span>}</div>{editingComment===c.id?<div className='comment-edit'><input value={commentText} onChange={e=>setCommentText(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){updateComment(c.id,commentText);setEditingComment(null)}}}/><button type='button' onClick={()=>{updateComment(c.id,commentText);setEditingComment(null)}}>Lưu</button></div>:((String(c.message||'').startsWith('IMAGE::')?<img className='comment-photo' src={c.message.slice(7)} alt='Ảnh KH'/>:(String(c.message||'').startsWith('https://')&&/\.(jpg|jpeg|png|gif|webp)/i.test(c.message))?<img className='comment-photo' src={c.message} alt='Ảnh KH'/>:<p>{c.message}</p>))}</div></div>})}</div>{f.id?<div className='comment-compose'><input value={comment} onChange={e=>setComment(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();submitComment()}}} placeholder='Viết bình luận...'/><button type='button' onClick={submitComment}>Gửi</button></div>:<small>Lưu thẻ trước để bật hội thoại.</small>}</div>
   </form>
  </div>}
 
