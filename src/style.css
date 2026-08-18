@@ -1178,3 +1178,6 @@ header>div:last-child button,.primary{font-weight:800!important}.reset-password-
  .tp-days{gap:6px;}
  .tp-day{width:44px;height:32px;font-size:.78rem;}
 }
+
+/* Board branch selector and recurring checklist indicator */
+.board-scope{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0}.board-scope label{display:flex;align-items:center;gap:7px;margin:0;color:#475569;font-size:13px;font-weight:700}.board-scope label span{white-space:nowrap}.board-scope small{color:#64748b;white-space:nowrap}.board-scope small b{color:#0f172a}.cycle-hint{display:block;margin:-3px 0 10px;color:#2563eb;font-size:12px;font-weight:600}@media(max-width:768px){.board-bar>.board-scope{grid-template-columns:1fr auto auto!important}.board-scope label{min-width:0}.board-scope label select{width:100%;min-width:0}.board-scope small{grid-column:1/-1;white-space:normal}.board-scope>button{padding:8px 10px!important}}
