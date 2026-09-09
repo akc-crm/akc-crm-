@@ -604,6 +604,7 @@ function TrainingPlanWizard({profile}){
  const[f,setF]=useState({name:'',phone:'',email:'',age:'',gender:'',height:'',weight:'',goal:'',training_type:'',course_weeks:'',package_sessions:'',training_days:[],health_notes:''});
  const[errors,setErrors]=useState({});
  const[result,setResult]=useState(null);
+ const[submitError,setSubmitError]=useState('');
  function set(k,v){setF(p=>({...p,[k]:v}));setErrors(p=>({...p,[k]:''}))} 
  function validatePhone(p){return /^(0[3|5|7|8|9])[0-9]{8}$/.test(p.trim())}
  function validateStep1(){
@@ -643,6 +644,7 @@ function TrainingPlanWizard({profile}){
   e.preventDefault();
   if(!validateStep3())return;
   setStatus('loading');
+  setSubmitError('');
   const today=new Date();const dd=String(today.getDate()).padStart(2,'0'),mm=String(today.getMonth()+1).padStart(2,'0'),yyyy=today.getFullYear();
   const payload={name:f.name.trim(),phone:f.phone.trim(),email:f.email.trim(),age:Number(f.age),gender:f.gender,height:Number(f.height),weight:Number(f.weight),goal:f.goal,training_type:f.training_type,course_weeks:Number(f.course_weeks),package_sessions:f.package_sessions?Number(f.package_sessions):null,training_days:f.training_days,sessions_per_week:f.training_days.length,health_notes:f.health_notes.trim(),coach:profile.full_name||profile.email||'HLV',date:`${dd}/${mm}/${yyyy}`};
   try{
@@ -650,18 +652,18 @@ function TrainingPlanWizard({profile}){
    const timer=setTimeout(()=>controller.abort(),120000);
    const res=await fetch(TRAINING_PLAN_WEBHOOK,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal:controller.signal});
    clearTimeout(timer);
-   if(!res.ok)throw new Error('HTTP '+res.status);
    const data=await res.json().catch(()=>({}));
+   if(!res.ok||data?.success!==true)throw new Error(data?.message||data?.error||('Workflow chưa xác nhận gửi email (HTTP '+res.status+').'));
    setResult(data);
    setStatus('success');
   }catch(err){
    console.error('Training plan webhook error:',err);
    if(err.name==='AbortError')setStatus('timeout');
-   else setStatus('error');
+   else{setSubmitError(err.message||'Không thể tạo kế hoạch.');setStatus('error');}
   }
  }
  const DAYS=[{v:2,l:'Thứ 2'},{v:3,l:'Thứ 3'},{v:4,l:'Thứ 4'},{v:5,l:'Thứ 5'},{v:6,l:'Thứ 6'},{v:7,l:'Thứ 7'},{v:8,l:'CN'}];
- const resetForm=()=>{setStatus('idle');setStep(1);setResult(null);setF({name:'',phone:'',email:'',age:'',gender:'',height:'',weight:'',goal:'',training_type:'',course_weeks:'',package_sessions:'',training_days:[],health_notes:''});setErrors({});};
+ const resetForm=()=>{setStatus('idle');setStep(1);setResult(null);setSubmitError('');setF({name:'',phone:'',email:'',age:'',gender:'',height:'',weight:'',goal:'',training_type:'',course_weeks:'',package_sessions:'',training_days:[],health_notes:''});setErrors({});};
  if(status==='timeout')return(
   <div className='training-plan-page'>
    <div className='tp-success' style={{background:'#fff8e1',borderColor:'#f59e0b'}}>
@@ -730,7 +732,7 @@ function TrainingPlanWizard({profile}){
        {errors.training_days&&<span className='tp-err'>{errors.training_days}</span>}
       </div>
       <label>Ghi chú sức khỏe hoặc chấn thương<textarea value={f.health_notes} onChange={e=>set('health_notes',e.target.value)} rows={3} placeholder='Ví dụ: đau gối, đau lưng, đau vai, bệnh nền hoặc chấn thương. Để trống nếu không có.'/></label>
-      {status==='error'&&<div className='tp-error-msg'>Không thể tạo kế hoạch. Vui lòng kiểm tra thông tin và thử lại.</div>}
+      {status==='error'&&<div className='tp-error-msg'>{submitError||'Không thể tạo kế hoạch. Vui lòng kiểm tra thông tin và thử lại.'}</div>}
       <div className='tp-actions'>
        <button type='button' className='ghost' onClick={()=>setStep(2)}>← Quay lại</button>
        <button type='submit' className='primary tp-submit' disabled={status==='loading'}>{status==='loading'?'Đang tạo kế hoạch...':'TẠO KẾ HOẠCH'}</button>
