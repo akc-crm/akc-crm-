@@ -17,18 +17,49 @@ function App(){
  const boardLoadVersion=useRef(0);
  const[userMenu,setUserMenu]=useState(false);
  const fileInputRef=useRef(null);
- const[filter,setFilter]=useState({branch_id:'',source:'',owner_id:'',date_from:'',date_to:'',q:''});
+ const[filter,setFilter]=useState({branch_id:'',source:'',owner_id:'',date_from:'',date_to:'',q:''}),[loadError,setLoadError]=useState('');
  if(!isSupabaseConfigured)return <Setup/>;
  useEffect(()=>{supabase.auth.getSession().then(({data})=>{setSession(data.session);});const{data:s}=supabase.auth.onAuthStateChange((event,ss)=>{setSession(ss);if(event==='PASSWORD_RECOVERY'){setIsRecovery(true);}else if(event==='SIGNED_IN'||event==='SIGNED_OUT'){setIsRecovery(false);}});return()=>s.subscription.unsubscribe()},[]);
- async function load(silent=false){if(!silent)setLoading(true);const{data:bs}=await supabase.from('branches').select('*').order('name');setBranches(bs||[]);if(session?.user){const{data:p}=await supabase.from('profiles').select('*').eq('id',session.user.id).single();setProfile(p||null);const{data:us}=await supabase.from('profiles').select('*').order('created_at',{ascending:false});setUsers(us||[]);let lq=supabase.from('leads').select('*').order('created_at',{ascending:false}).limit(500);if(filter.date_from)lq=lq.gte('created_at',filter.date_from);if(filter.date_to)lq=lq.lte('created_at',filter.date_to+'T23:59:59');const{data:ls}=await lq;setLeads(ls||[]);const{data:ts}=await supabase.from('operation_tasks').select('*').order('created_at',{ascending:false});setTasks(ts||[]);
-try{
- let sq=supabase.from('pt_checklists').select('*').eq('item_type','teaching_show').order('show_date',{ascending:false}).order('start_time',{ascending:false});
- if(p?.role==='pt')sq=sq.eq('pt_id',p.id);
- if(p?.role==='manager'){const mBranches=[p.branch_id,...(p.extra_branch_ids||[])].filter(Boolean);if(mBranches.length===1)sq=sq.eq('branch_id',mBranches[0]);else if(mBranches.length>1)sq=sq.in('branch_id',mBranches);}
- const{data:ps}=await sq;
- setPtShows(ps||[]);
-}catch(_e){setPtShows([])}
-}if(!silent)setLoading(false)}
+ async function load(silent=false){
+  if(!silent){setLoading(true);setLoadError('');}
+  try{
+   const{data:bs,error:branchesError}=await supabase.from('branches').select('*').order('name');
+   if(branchesError)throw branchesError;
+   setBranches(bs||[]);
+   if(session?.user){
+    const{data:p,error:profileError}=await supabase.from('profiles').select('*').eq('id',session.user.id).single();
+    if(profileError)throw profileError;
+    setProfile(p||null);
+    const{data:us,error:usersError}=await supabase.from('profiles').select('*').order('created_at',{ascending:false});
+    if(usersError)throw usersError;
+    setUsers(us||[]);
+    let lq=supabase.from('leads').select('*').order('created_at',{ascending:false}).limit(500);
+    if(filter.date_from)lq=lq.gte('created_at',filter.date_from);
+    if(filter.date_to)lq=lq.lte('created_at',filter.date_to+'T23:59:59');
+    const{data:ls,error:leadsError}=await lq;
+    if(leadsError)throw leadsError;
+    setLeads(ls||[]);
+    const{data:ts,error:tasksError}=await supabase.from('operation_tasks').select('*').order('created_at',{ascending:false});
+    if(tasksError)throw tasksError;
+    setTasks(ts||[]);
+    let sq=supabase.from('pt_checklists').select('*').eq('item_type','teaching_show').order('show_date',{ascending:false}).order('start_time',{ascending:false});
+    if(p?.role==='pt')sq=sq.eq('pt_id',p.id);
+    if(p?.role==='manager'){
+     const mBranches=[p.branch_id,...(p.extra_branch_ids||[])].filter(Boolean);
+     if(mBranches.length===1)sq=sq.eq('branch_id',mBranches[0]);
+     else if(mBranches.length>1)sq=sq.in('branch_id',mBranches);
+    }
+    const{data:ps,error:showsError}=await sq;
+    if(showsError)throw showsError;
+    setPtShows(ps||[]);
+   }
+  }catch(error){
+   console.error('Không tải được dữ liệu CRM:',error);
+   setLoadError('Không thể kết nối tới dữ liệu CRM vào lúc này. Đây không phải lỗi email hoặc mật khẩu. Vui lòng thử lại sau ít phút.');
+  }finally{
+   if(!silent)setLoading(false);
+  }
+ }
  async function loadBoard(boardIdOverride,branchFilter){
   const requestId=++boardLoadVersion.current;
   const {data:bd,error:boardError}=await supabase.from('boards').select('*').order('position',{ascending:true}).order('created_at',{ascending:true});
@@ -74,7 +105,7 @@ try{
   let boardDebounceTimer=null;
   const reloadBoard=()=>{if(page!=='BOARD')return;clearTimeout(boardDebounceTimer);boardDebounceTimer=setTimeout(()=>loadBoard(selectedBoard||undefined),600);};
   const c=supabase.channel('akc-v9').on('postgres_changes',{event:'*',schema:'public',table:'leads'},reloadLeads).on('postgres_changes',{event:'*',schema:'public',table:'profiles'},reloadProfiles).on('postgres_changes',{event:'*',schema:'public',table:'branches'},reloadBranches).on('postgres_changes',{event:'*',schema:'public',table:'operation_tasks'},reloadTasks).on('postgres_changes',{event:'*',schema:'public',table:'pt_checklists'},reloadPtShows).on('postgres_changes',{event:'*',schema:'public',table:'boards'},reloadBoard).on('postgres_changes',{event:'*',schema:'public',table:'board_lists'},reloadBoard).on('postgres_changes',{event:'*',schema:'public',table:'board_cards'},reloadBoard).on('postgres_changes',{event:'*',schema:'public',table:'card_comments'},reloadBoard).subscribe();return()=>{clearTimeout(boardDebounceTimer);supabase.removeChannel(c)}},[session?.user?.id,page]);
- if(isRecovery)return <ResetPasswordForm onDone={()=>{setIsRecovery(false);supabase.auth.signOut();}}/>; if(!session)return <Auth branches={branches}/>; if(loading)return <Splash text='Đang tải CRM...'/>; if(!profile||profile.status!=='approved'||!profile.active)return <Pending profile={profile}/>;
+ if(isRecovery)return <ResetPasswordForm onDone={()=>{setIsRecovery(false);supabase.auth.signOut();}}/>; if(!session)return <Auth branches={branches}/>; if(loading)return <Splash text='Đang tải CRM...'/>; if(loadError)return <ConnectionError message={loadError} onRetry={()=>load(false)} onLogout={()=>supabase.auth.signOut()}/>; if(!profile||profile.status!=='approved'||!profile.active)return <Pending profile={profile}/>;
  const isAdmin=profile.role==='admin',isManager=profile.role==='manager',isSale=profile.role==='sale',isPT=profile.role==='pt',isStaff=['sale','pt'].includes(profile.role);
  const managerBranches=isManager?[profile.branch_id,...(profile.extra_branch_ids||[])].filter(Boolean):[];
  function managerCanAccessBranch(bid){if(!isManager)return false;if(!managerBranches.length)return true;return managerBranches.includes(bid);}
@@ -247,6 +278,7 @@ const{data:oldChecks}=await supabase.from('card_checklists').select('text,positi
 function Setup(){return <Splash text='Chưa cấu hình Supabase. Thêm VITE_SUPABASE_URL và VITE_SUPABASE_ANON_KEY trong Vercel.'/>}
 function Splash({text}){return <div className='login'><div className='card'><div className='logo big'>AKC</div><h1>AKC CRM v8</h1><p>{text}</p></div></div>}
 function Pending({profile}){return <div className='login'><div className='card'><div className='logo big'>AKC</div><h1>Đang chờ duyệt</h1><p>{profile?.email||''} chưa được Admin duyệt hoặc đang bị khóa.</p><button className='primary full' onClick={()=>supabase.auth.signOut()}>Đăng xuất</button></div></div>}
+function ConnectionError({message,onRetry,onLogout}){return <div className='login'><div className='card'><div className='logo big'>AKC</div><h1>Hệ thống dữ liệu đang tạm thời chậm</h1><p>{message}</p><button className='primary full' onClick={onRetry}>Thử lại</button><button className='ghost full' onClick={onLogout}>Đăng xuất</button></div></div>}
 function PasswordModal({onClose,onSave}){const[f,setF]=useState({password:'',confirm:''});return <div className='modal' onMouseDown={onClose}><form className='modal-card password-modal' onMouseDown={e=>e.stopPropagation()} onSubmit={e=>{e.preventDefault();onSave(f)}}><div className='modal-head'><h3>Đổi mật khẩu</h3><button type='button' onClick={onClose}>×</button></div><label>Mật khẩu mới<input type='password' value={f.password} onChange={e=>setF({...f,password:e.target.value})} minLength={6} required/></label><label>Nhập lại mật khẩu mới<input type='password' value={f.confirm} onChange={e=>setF({...f,confirm:e.target.value})} minLength={6} required/></label><p className='hint'>Sau khi đổi, lần đăng nhập sau dùng mật khẩu mới. Nếu quên mật khẩu, dùng nút Quên mật khẩu ở màn hình đăng nhập.</p><button className='primary full'>Cập nhật mật khẩu</button></form></div>}
 function ResetPasswordForm({onDone}){const[pw,setPw]=useState(''),[pw2,setPw2]=useState(''),[err,setErr]=useState(''),[ok,setOk]=useState(false);async function submit(e){e.preventDefault();setErr('');if(pw.length<6)return setErr('Mật khẩu tối thiểu 6 ký tự');if(pw!==pw2)return setErr('Mật khẩu xác nhận chưa khớp');const{error}=await supabase.auth.updateUser({password:pw});if(error)return setErr(error.message);setOk(true);setTimeout(()=>onDone(),2000);}return <div className='login'><div className='card'><div className='logo big'>AKC</div><h1>Đặt mật khẩu mới</h1><p>Nhập mật khẩu mới cho tài khoản của bạn.</p>{ok?<div className='success'>Đổi mật khẩu thành công! Đang chuyển về trang đăng nhập...</div>:<form onSubmit={submit}><label>Mật khẩu mới<input type='password' value={pw} onChange={e=>setPw(e.target.value)} minLength={6} required autoFocus/></label><label>Nhập lại mật khẩu mới<input type='password' value={pw2} onChange={e=>setPw2(e.target.value)} minLength={6} required/></label>{err&&<div className='error'>{err}</div>}<button className='primary full'>Cập nhật mật khẩu</button></form>}</div></div>}
 function Auth({branches}){const[mode,setMode]=useState('login'),[err,setErr]=useState(''),[login,setLogin]=useState({email:'',password:''}),[reg,setReg]=useState({name:'',phone:'',email:'',password:'',branch_id:''});useEffect(()=>{if(branches[0]&&!reg.branch_id)setReg(r=>({...r,branch_id:branches[0].id}))},[branches]);async function inx(e){e.preventDefault();setErr('');const{error}=await supabase.auth.signInWithPassword({email:login.email.trim().toLowerCase(),password:login.password});if(error)setErr(error.message)}async function up(e){e.preventDefault();setErr('');const{error}=await supabase.auth.signUp({email:reg.email.trim().toLowerCase(),password:reg.password,options:{data:{full_name:reg.name,phone:reg.phone,branch_id:reg.branch_id}}});if(error)return setErr(error.message);setMode('login');setLogin({email:reg.email,password:reg.password});setErr('Đăng ký thành công. Tài khoản đang chờ Admin duyệt.')}async function forgot(){setErr('');if(!login.email.trim())return setErr('Nhập email trước rồi bấm Quên mật khẩu.');const{error}=await supabase.auth.resetPasswordForEmail(login.email.trim().toLowerCase(),{redirectTo:window.location.origin+'/reset-password'});if(error)return setErr(error.message);setErr('Đã gửi email khôi phục mật khẩu. Anh/chị kiểm tra hộp thư.') }return <div className='login'><div className='card'><div className='logo big'>AKC</div><h1>{mode==='login'?'Đăng nhập AKC CRM':'Đăng ký tài khoản'}</h1><p>{mode==='login'?'Tài khoản phải được Admin duyệt mới đăng nhập được.':'Sau khi đăng ký, Admin sẽ phân quyền và kích hoạt tài khoản.'}</p>{mode==='login'?<form onSubmit={inx}><label>Email<input value={login.email} onChange={e=>setLogin({...login,email:e.target.value})} required/></label><label>Mật khẩu<input type='password' value={login.password} onChange={e=>setLogin({...login,password:e.target.value})} required/></label>{err&&<div className={err.includes('thành công')||err.includes('Đã gửi')?'success':'error'}>{err}</div>}<button className='primary full'>Đăng nhập</button><button type='button' className='ghost full' onClick={forgot}>Quên mật khẩu</button><button type='button' className='ghost full' onClick={()=>{setMode('register');setErr('')}}>Đăng ký tài khoản mới</button></form>:<form onSubmit={up}><label>Họ tên<input value={reg.name} onChange={e=>setReg({...reg,name:e.target.value})} required/></label><label>SĐT<input value={reg.phone} onChange={e=>setReg({...reg,phone:e.target.value})}/></label><label>Email<input type='email' value={reg.email} onChange={e=>setReg({...reg,email:e.target.value})} required/></label><label>Mật khẩu<input type='password' value={reg.password} onChange={e=>setReg({...reg,password:e.target.value})} required/></label><label>Cơ sở<select value={reg.branch_id} onChange={e=>setReg({...reg,branch_id:e.target.value})}>{branches.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select></label>{err&&<div className='error'>{err}</div>}<button className='primary full'>Gửi đăng ký</button><button type='button' className='ghost full' onClick={()=>{setMode('login');setErr('')}}>Quay lại đăng nhập</button></form>}</div></div>}
