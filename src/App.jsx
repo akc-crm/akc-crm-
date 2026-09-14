@@ -42,7 +42,7 @@ function App(){
     const{data:ts,error:tasksError}=await supabase.from('operation_tasks').select('*').order('created_at',{ascending:false});
     if(tasksError)throw tasksError;
     setTasks(ts||[]);
-    let sq=supabase.from('pt_checklists').select('*').eq('item_type','teaching_show').order('show_date',{ascending:false}).order('start_time',{ascending:false});
+    let sq=supabase.from('pt_checklists').select('*').eq('item_type','teaching_show').order('show_date',{ascending:false}).order('start_time',{ascending:false}).limit(500);
     if(p?.role==='pt')sq=sq.eq('pt_id',p.id);
     if(p?.role==='manager'){
      const mBranches=[p.branch_id,...(p.extra_branch_ids||[])].filter(Boolean);
@@ -75,7 +75,7 @@ function App(){
   // Chỉ tải danh sách và thẻ thuộc Board đang chọn, không lấy dữ liệu của các Board khác.
   const[{data:bl,error:listError},{data:bc,error:cardError}]=await Promise.all([
    supabase.from('board_lists').select('*').eq('board_id',targetBoard).order('position',{ascending:true}),
-   supabase.from('board_cards').select('*').eq('board_id',targetBoard).order('position',{ascending:true}).order('created_at',{ascending:true})
+   supabase.from('board_cards').select('id,board_id,list_id,title,description,cover_image,owner_id,due_date,label,recurrence_cycle,position,created_by,created_at,updated_at').eq('board_id',targetBoard).order('position',{ascending:true}).order('created_at',{ascending:true}).limit(500)
   ]);
   if(requestId!==boardLoadVersion.current)return;
   if(listError||cardError){console.error('Không tải được danh sách/thẻ Board:',listError||cardError);return;}
@@ -84,11 +84,12 @@ function App(){
   const cardIds=(bc||[]).map(c=>c.id);
   if(!cardIds.length){setCardChecks([]);setCardComments([]);return;}
   // Ảnh base64 đã được migrate sang Storage; chỉ tải comments của Board đang xem và mới nhất trước.
-  const[{data:cc},{data:cm}]=await Promise.all([
-   supabase.from('card_checklists').select('id,card_id,done,position').in('card_id',cardIds).order('position',{ascending:true}),
-   supabase.from('card_comments').select('*').in('card_id',cardIds).order('created_at',{ascending:false})
+  const[{data:cc,error:checkError},{data:cm,error:commentError}]=await Promise.all([
+   supabase.from('card_checklists').select('id,card_id,done,position').in('card_id',cardIds).order('position',{ascending:true}).limit(2000),
+   supabase.from('card_comments').select('id,card_id,user_id,message,created_at').in('card_id',cardIds).order('created_at',{ascending:false}).limit(1000)
   ]);
   if(requestId!==boardLoadVersion.current)return;
+  if(checkError||commentError){console.error('Không tải được checklist/bình luận:',checkError||commentError);setLoadError('Không tải được checklist hoặc bình luận của Board. Vui lòng tải lại.');return;}
   setCardChecks(cc||[]);
   setCardComments(cm||[]);
  }
@@ -100,7 +101,7 @@ function App(){
   const reloadProfiles=()=>{supabase.from('profiles').select('*').eq('id',session.user.id).single().then(({data})=>setProfile(data));supabase.from('profiles').select('*').order('created_at',{ascending:false}).then(({data})=>setUsers(data||[]));};
   const reloadBranches=()=>supabase.from('branches').select('*').order('name').then(({data})=>setBranches(data||[]));
   const reloadTasks=()=>supabase.from('operation_tasks').select('*').order('created_at',{ascending:false}).then(({data})=>setTasks(data||[]));
-  const reloadPtShows=()=>{let sq=supabase.from('pt_checklists').select('*').eq('item_type','teaching_show').order('show_date',{ascending:false}).order('start_time',{ascending:false});if(profile?.role==='pt')sq=sq.eq('pt_id',profile.id);if(profile?.role==='manager'){const mb=[profile.branch_id,...(profile.extra_branch_ids||[])].filter(Boolean);if(mb.length===1)sq=sq.eq('branch_id',mb[0]);else if(mb.length>1)sq=sq.in('branch_id',mb);}sq.then(({data})=>setPtShows(data||[]));};
+  const reloadPtShows=()=>{let sq=supabase.from('pt_checklists').select('*').eq('item_type','teaching_show').order('show_date',{ascending:false}).order('start_time',{ascending:false}).limit(500);if(profile?.role==='pt')sq=sq.eq('pt_id',profile.id);if(profile?.role==='manager'){const mb=[profile.branch_id,...(profile.extra_branch_ids||[])].filter(Boolean);if(mb.length===1)sq=sq.eq('branch_id',mb[0]);else if(mb.length>1)sq=sq.in('branch_id',mb);}sq.then(({data})=>setPtShows(data||[]));};
   // Fix 3+4: Debounce loadBoard 600ms, bỏ realtime card_checklists (dùng optimistic update)
   let boardDebounceTimer=null;
   const reloadBoard=()=>{if(page!=='BOARD')return;clearTimeout(boardDebounceTimer);boardDebounceTimer=setTimeout(()=>loadBoard(selectedBoard||undefined),600);};
@@ -583,8 +584,7 @@ function BoardCardModal({initial,lists,users,checks,comments,profile,onClose,onS
    set('cover_image',urlData.publicUrl);
   }catch(err){
    console.error('Upload cover lỗi:',err);
-   // Fallback: dùng base64 nếu Storage lỗi
-   const reader=new FileReader();reader.onload=()=>set('cover_image',reader.result);reader.readAsDataURL(file);
+   alert('Không tải được ảnh lên Storage. Ảnh chưa được lưu để tránh làm nặng Database. Vui lòng thử lại.');
   }
  }
  async function uploadCustomerImages(e){
@@ -600,8 +600,7 @@ function BoardCardModal({initial,lists,users,checks,comments,profile,onClose,onS
     addComment(f.id,urlData.publicUrl);
    }catch(err){
     console.error('Upload ảnh KH lỗi:',err);
-    // Fallback: base64
-    const reader=new FileReader();reader.onload=()=>addComment(f.id,'IMAGE::'+reader.result);reader.readAsDataURL(file);
+    alert('Không tải được ảnh khách hàng lên Storage. Ảnh chưa được lưu để tránh làm nặng Database. Vui lòng thử lại.');
    }
   }
   e.target.value='';
