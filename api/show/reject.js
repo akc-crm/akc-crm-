@@ -1,4 +1,4 @@
-import { allowCors, requireApiKey, getSupabaseAdmin, readBody, json } from './_supabaseAdmin.js';
+import { allowCors, requireApiKey, getSupabaseAdmin, readBody, json, isUuid } from './_supabaseAdmin.js';
 
 export default async function handler(req, res) {
   if (allowCors(req, res)) return;
@@ -9,6 +9,7 @@ export default async function handler(req, res) {
     const body = await readBody(req);
     const showId = body.show_id || body.id;
     if (!showId) return json(res, 400, { success: false, error: 'Missing show_id' });
+    if (!isUuid(showId)) return json(res, 400, { success: false, error: 'Invalid show_id: expected UUID' });
 
     const supabase = getSupabaseAdmin();
     const { data, error } = await supabase
