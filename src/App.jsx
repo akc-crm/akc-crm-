@@ -1,6 +1,7 @@
 import React,{useEffect,useRef,useState}from'react';
 import{createRoot}from'react-dom/client';
 import{supabase,isSupabaseConfigured}from'./supabaseClient';
+import Base64Migration from'./Base64Migration';
 import'./style.css';
 const STATUSES=['Lead mới','Đã gọi','Đặt lịch','T1','Đã mua gói','Mất lead'];
 const SOURCES=['MKT','FB Tổng','Page cơ sở','Vãng lai','Tự kiếm','Khách cũ','Khách giới thiệu','Hotline tổng','Website'];
@@ -791,4 +792,5 @@ function TrainingPlanWizard({profile}){
   </div>
  );
 }
-createRoot(document.getElementById('root')).render(<App/>);
+const maintenanceMode=new URLSearchParams(window.location.search).get('maintenance');
+createRoot(document.getElementById('root')).render(maintenanceMode==='base64'?<Base64Migration/>:<App/>);
