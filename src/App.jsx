@@ -7,6 +7,7 @@ const SOURCES=['MKT','FB Tổng','Page cơ sở','Vãng lai','Tự kiếm','Khá
 const TASK_STATUSES=['Việc mới','Đang xử lý','Chờ duyệt','Hoàn thành','Tạm dừng'];
 const PRIORITIES=['Thấp','Vừa','Gấp','Rất gấp'];
 const DEFAULT_BOARD_BG='linear-gradient(135deg,#f8fafc,#ffffff 45%,#eef2ff)';
+const PT_SHOW_FIELDS='id,title,description,done,created_by,created_at,updated_at,item_type,customer_id,customer_name,kiot_customer_id,pt_id,pt_name,kiot_employee_id,branch_id,branch_name,show_date,start_time,end_time,service_product_id,service_product_name,price,show_status,completed_at,approved_by,approved_by_name,approved_at,rejected_by,rejected_by_name,rejected_at,reject_reason,telegram_message_id,kiot_invoice_id,kiot_invoice_code,kiot_invoice_created_at,kiot_invoice_error,show_crm_code,kiot_branch_id,discount_percent,discount_amount';
 const money=n=>Number(n||0).toLocaleString('vi-VN')+'đ';
 const today=()=>new Date().toISOString().slice(0,10);
 function bname(bs,id){return bs.find(b=>b.id===id)?.name||'Chưa gán cơ sở'}
@@ -55,7 +56,7 @@ function App(){
     const{data:ts,error:tasksError}=await supabase.from('operation_tasks').select('*').order('created_at',{ascending:false});
     if(tasksError)throw tasksError;
     setTasks(ts||[]);
-    let sq=supabase.from('pt_checklists').select('*').eq('item_type','teaching_show').order('show_date',{ascending:false}).order('start_time',{ascending:false}).limit(500);
+    let sq=supabase.from('pt_checklists').select(PT_SHOW_FIELDS).eq('item_type','teaching_show').order('show_date',{ascending:false}).order('start_time',{ascending:false}).limit(500);
     if(p?.role==='pt')sq=sq.eq('pt_id',p.id);
     if(p?.role==='manager'){
      const mBranches=[p.branch_id,...(p.extra_branch_ids||[])].filter(Boolean);
@@ -114,7 +115,7 @@ function App(){
   const reloadProfiles=()=>{supabase.from('profiles').select('*').eq('id',session.user.id).single().then(({data})=>setProfile(data));supabase.from('profiles').select('*').order('created_at',{ascending:false}).then(({data})=>setUsers(data||[]));};
   const reloadBranches=()=>supabase.from('branches').select('*').order('name').then(({data})=>setBranches(data||[]));
   const reloadTasks=()=>supabase.from('operation_tasks').select('*').order('created_at',{ascending:false}).then(({data})=>setTasks(data||[]));
-  const reloadPtShows=()=>{let sq=supabase.from('pt_checklists').select('*').eq('item_type','teaching_show').order('show_date',{ascending:false}).order('start_time',{ascending:false}).limit(500);if(profile?.role==='pt')sq=sq.eq('pt_id',profile.id);if(profile?.role==='manager'){const mb=[profile.branch_id,...(profile.extra_branch_ids||[])].filter(Boolean);if(mb.length===1)sq=sq.eq('branch_id',mb[0]);else if(mb.length>1)sq=sq.in('branch_id',mb);}sq.then(({data})=>setPtShows(data||[]));};
+  const reloadPtShows=()=>{let sq=supabase.from('pt_checklists').select(PT_SHOW_FIELDS).eq('item_type','teaching_show').order('show_date',{ascending:false}).order('start_time',{ascending:false}).limit(500);if(profile?.role==='pt')sq=sq.eq('pt_id',profile.id);if(profile?.role==='manager'){const mb=[profile.branch_id,...(profile.extra_branch_ids||[])].filter(Boolean);if(mb.length===1)sq=sq.eq('branch_id',mb[0]);else if(mb.length>1)sq=sq.in('branch_id',mb);}sq.then(({data})=>setPtShows(data||[]));};
   // Chỉ reload cấu trúc khi Board/List đổi; Card/Comment được cập nhật theo payload để tránh bão truy vấn.
   let boardDebounceTimer=null;
   const reloadBoardStructure=()=>{if(page!=='BOARD')return;clearTimeout(boardDebounceTimer);boardDebounceTimer=setTimeout(()=>loadBoard(selectedBoard||undefined),600);};
