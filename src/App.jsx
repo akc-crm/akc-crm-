@@ -2,6 +2,7 @@ import React,{useEffect,useRef,useState}from'react';
 import{createRoot}from'react-dom/client';
 import{supabase,isSupabaseConfigured}from'./supabaseClient';
 import Base64Migration from'./Base64Migration';
+import{interpretTrainingPlanResponse}from'./trainingPlanResponse';
 import'./style.css';
 const STATUSES=['Lead mới','Đã gọi','Đặt lịch','T1','Đã mua gói','Mất lead'];
 const SOURCES=['MKT','FB Tổng','Page cơ sở','Vãng lai','Tự kiếm','Khách cũ','Khách giới thiệu','Hotline tổng','Website'];
@@ -654,7 +655,7 @@ function BoardCardModal({initial,lists,users,checks,comments,profile,onClose,onS
 const TRAINING_PLAN_WEBHOOK='https://n8n.kickfits.info/webhook/akc-training-plan';
 function TrainingPlanWizard({profile}){
  const[step,setStep]=useState(1);
- const[status,setStatus]=useState('idle'); // idle | loading | success | error | timeout
+ const[status,setStatus]=useState('idle'); // idle | loading | success | accepted | error | timeout
  const[f,setF]=useState({name:'',phone:'',email:'',age:'',gender:'',height:'',weight:'',goal:'',training_type:'',course_weeks:'',package_sessions:'',training_days:[],health_notes:''});
  const[errors,setErrors]=useState({});
  const[result,setResult]=useState(null);
@@ -701,19 +702,20 @@ function TrainingPlanWizard({profile}){
   setSubmitError('');
   const today=new Date();const dd=String(today.getDate()).padStart(2,'0'),mm=String(today.getMonth()+1).padStart(2,'0'),yyyy=today.getFullYear();
   const payload={name:f.name.trim(),phone:f.phone.trim(),email:f.email.trim(),age:Number(f.age),gender:f.gender,height:Number(f.height),weight:Number(f.weight),goal:f.goal,training_type:f.training_type,course_weeks:Number(f.course_weeks),package_sessions:f.package_sessions?Number(f.package_sessions):null,training_days:f.training_days,sessions_per_week:f.training_days.length,health_notes:f.health_notes.trim(),coach:profile.full_name||profile.email||'HLV',date:`${dd}/${mm}/${yyyy}`};
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),120000);
   try{
-   const controller=new AbortController();
-   const timer=setTimeout(()=>controller.abort(),120000);
    const res=await fetch(TRAINING_PLAN_WEBHOOK,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal:controller.signal});
-   clearTimeout(timer);
-   const data=await res.json().catch(()=>({}));
-   if(!res.ok||data?.success!==true)throw new Error(data?.message||data?.error||('Workflow chưa xác nhận gửi email (HTTP '+res.status+').'));
-   setResult(data);
-   setStatus('success');
+   const outcome=interpretTrainingPlanResponse(res.status,res.ok,await res.text());
+   if(outcome.kind==='error')throw new Error(outcome.message);
+   setResult(outcome.data||null);
+   setStatus(outcome.kind);
   }catch(err){
    console.error('Training plan webhook error:',err);
    if(err.name==='AbortError')setStatus('timeout');
    else{setSubmitError(err.message||'Không thể tạo kế hoạch.');setStatus('error');}
+  }finally{
+   clearTimeout(timer);
   }
  }
  const DAYS=[{v:2,l:'Thứ 2'},{v:3,l:'Thứ 3'},{v:4,l:'Thứ 4'},{v:5,l:'Thứ 5'},{v:6,l:'Thứ 6'},{v:7,l:'Thứ 7'},{v:8,l:'CN'}];
@@ -722,8 +724,19 @@ function TrainingPlanWizard({profile}){
   <div className='training-plan-page'>
    <div className='tp-success' style={{background:'#fff8e1',borderColor:'#f59e0b'}}>
     <div className='tp-success-icon' style={{background:'#f59e0b'}}>⏳</div>
-    <h2 style={{color:'#b45309'}}>AI đang xử lý...</h2>
-    <p>Hệ thống AI đang tạo kế hoạch cho <strong>{f.name}</strong>.<br/>Kế hoạch sẽ được gửi qua email <strong>{f.email}</strong> trong vài phút.</p>
+    <h2 style={{color:'#b45309'}}>Chưa xác định kết quả</h2>
+    <p>Yêu cầu cho <strong>{f.name}</strong> đã quá thời gian chờ. Hãy kiểm tra email <strong>{f.email}</strong> và trạng thái xử lý trên n8n trước khi tạo lại để tránh gửi trùng.</p>
+    <button className='primary' onClick={resetForm}>Tạo kế hoạch mới</button>
+   </div>
+  </div>
+ );
+ if(status==='accepted')return(
+  <div className='training-plan-page'>
+   <div className='tp-success' style={{background:'#fff8e1',borderColor:'#f59e0b'}}>
+    <div className='tp-success-icon' style={{background:'#f59e0b'}}>⏳</div>
+    <h2 style={{color:'#b45309'}}>Đã tiếp nhận yêu cầu</h2>
+    <p>n8n đã phản hồi yêu cầu cho <strong>{f.name}</strong>, nhưng chưa xác nhận đã gửi email đến <strong>{f.email}</strong>.</p>
+    <p>Hãy kiểm tra hộp thư và trạng thái xử lý trên n8n trước khi tạo lại để tránh gửi trùng.</p>
     <button className='primary' onClick={resetForm}>Tạo kế hoạch mới</button>
    </div>
   </div>
