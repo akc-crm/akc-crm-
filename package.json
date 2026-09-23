@@ -1,1 +1,1 @@
-{"scripts":{"dev":"vite --host 0.0.0.0","build":"vite build","preview":"vite preview --host 0.0.0.0"},"dependencies":{"react":"latest","react-dom":"latest","@supabase/supabase-js":"latest"},"devDependencies":{"@vitejs/plugin-react":"latest","vite":"latest"}}
+{"scripts":{"dev":"vite --host 0.0.0.0","build":"vite build","preview":"vite preview --host 0.0.0.0","test:operations":"node scripts/test-operations.mjs"},"dependencies":{"react":"latest","react-dom":"latest","@supabase/supabase-js":"latest"},"devDependencies":{"@vitejs/plugin-react":"latest","vite":"latest"}}

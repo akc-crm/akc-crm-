@@ -5,9 +5,7 @@ export function interpretTrainingPlanResponse(status, ok, body) {
  try { parsed = JSON.parse(body); } catch { parsed = null; }
  const candidates = [parsed, ...(Array.isArray(parsed) ? parsed : [])];
  for (const item of [...candidates]) {
-  if (item && typeof item === 'object') {
-   candidates.push(item.json, item.data);
-  }
+  if (item && typeof item === 'object') candidates.push(item.json, item.data);
  }
  const result = candidates.find(item => item && typeof item === 'object' && !Array.isArray(item) && ('success' in item || 'error' in item));
  const message = result?.message || result?.error;
