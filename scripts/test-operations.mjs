@@ -9,6 +9,7 @@ assert.match(app,/base==='Báo cáo'.*<Reports.*<ExecutiveDashboard/,'Báo cáo 
 assert.match(app,/Nghỉ phép/);
 assert.match(ui,/get_work_report/);
 assert.match(ui,/submit_leave_request/);
+assert.ok(ui.indexOf('Đơn nghỉ phép chờ duyệt')<ui.indexOf('Ngày phép từng nhân sự'),'Đơn chờ duyệt phải nằm trên danh sách theo dõi phép');
 assert.match(ui,/get_proposal_summary/);
 assert.match(ui,/limit\(100\)/);
 assert.match(app,/const OPERATION_TASK_FIELDS='[^']+'/,'Thiếu danh sách cột giới hạn cho công việc');
