@@ -1220,6 +1220,7 @@ header>div:last-child button,.primary{font-weight:800!important}.reset-password-
 .period-group button{min-height:37px;padding:8px 13px;border:1px solid var(--akc-border);border-radius:999px;background:#fff;color:#475569;white-space:nowrap}
 .period-group button:hover{border-color:var(--akc-red);color:var(--akc-red)}
 .period-group button.active{border-color:var(--akc-red);background:var(--akc-red);color:#fff}
+.report-history-note{margin-top:12px;padding:10px 12px;border:1px solid #fed7aa;border-radius:10px;background:#fff7ed;color:#9a3412;font-size:13px;font-weight:600}
 @media(min-width:1200px){.period-menu{grid-template-columns:repeat(6,minmax(105px,1fr))}}
 @media(max-width:900px){.work-report-controls{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.period-picker,.work-branch-filter{width:100%;min-width:0;max-width:none}.work-refresh{width:100%;min-width:0}.period-menu{width:min(680px,calc(100vw - 70px));grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:560px){.work-report-controls{grid-template-columns:1fr}.period-menu{position:fixed;top:92px;left:12px;right:12px;width:auto;max-height:calc(100vh - 115px);grid-template-columns:1fr 1fr;gap:14px;overflow-y:auto}.work-refresh{height:44px}.work-report-controls label{min-width:0}}
