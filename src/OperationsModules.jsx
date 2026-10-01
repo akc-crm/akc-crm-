@@ -5,6 +5,30 @@ const CATEGORIES=['Bổ sung trang thiết bị','Dụng cụ tập luyện','B�
 const money=n=>Number(n||0).toLocaleString('vi-VN')+'đ';
 const date=v=>v?new Date(String(v).slice(0,10)+'T12:00:00').toLocaleDateString('vi-VN'):'—';
 const today=()=>new Date().toISOString().slice(0,10);
+const isoDate=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const moveDate=(d,days)=>{const x=new Date(d);x.setDate(x.getDate()+days);return x};
+const PERIOD_GROUPS=[
+ {title:'Theo ngày',items:[['today','Hôm nay'],['yesterday','Hôm qua']]},
+ {title:'Theo tuần',items:[['this_week','Tuần này'],['last_week','Tuần trước'],['last_7_days','7 ngày qua']]},
+ {title:'Theo tháng',items:[['this_month','Tháng này'],['last_month','Tháng trước']]},
+ {title:'Theo quý',items:[['this_quarter','Quý này'],['last_quarter','Quý trước']]},
+ {title:'Theo năm',items:[['this_year','Năm nay'],['last_year','Năm trước']]}
+];
+const PERIOD_LABELS=Object.fromEntries(PERIOD_GROUPS.flatMap(g=>g.items));
+function presetRange(kind){
+ const n=new Date();n.setHours(12,0,0,0);let start=new Date(n),end=new Date(n);
+ if(kind==='yesterday'){start=moveDate(n,-1);end=new Date(start)}
+ if(kind==='this_week'){start=moveDate(n,-((n.getDay()+6)%7))}
+ if(kind==='last_week'){end=moveDate(n,-((n.getDay()+6)%7)-1);start=moveDate(end,-6)}
+ if(kind==='last_7_days')start=moveDate(n,-6);
+ if(kind==='this_month')start=new Date(n.getFullYear(),n.getMonth(),1,12);
+ if(kind==='last_month'){start=new Date(n.getFullYear(),n.getMonth()-1,1,12);end=new Date(n.getFullYear(),n.getMonth(),0,12)}
+ if(kind==='this_quarter')start=new Date(n.getFullYear(),Math.floor(n.getMonth()/3)*3,1,12);
+ if(kind==='last_quarter'){const q=Math.floor(n.getMonth()/3)*3;start=new Date(n.getFullYear(),q-3,1,12);end=new Date(n.getFullYear(),q,0,12)}
+ if(kind==='this_year')start=new Date(n.getFullYear(),0,1,12);
+ if(kind==='last_year'){start=new Date(n.getFullYear()-1,0,1,12);end=new Date(n.getFullYear()-1,11,31,12)}
+ return[isoDate(start),isoDate(end)];
+}
 const branchName=(branches,id)=>branches.find(b=>b.id===id)?.name||'—';
 const message=e=>alert(e?.message||String(e));
 const actionButtons=(row,decide)=>row.status==='Chờ duyệt'?<div className='ops-actions'><span className='request-status st-0'>Chờ duyệt</span><div><button type='button' className='primary' onClick={()=>decide(row,'Đã duyệt')}>Duyệt</button><button type='button' className='danger' onClick={()=>decide(row,'Từ chối')}>Từ chối</button></div></div>:<span className='request-status st-1'>{row.status}</span>;
@@ -47,14 +71,13 @@ export function LeavePage({profile,branches,users}){
 </div>
 }
 
-export function ExecutiveDashboard({profile,branches,users}){
- const [selectedUser,setSelectedUser]=useState(''),[selectedDepartment,setSelectedDepartment]=useState('Lễ tân');
- const [period,setPeriod]=useState('month'),[branch,setBranch]=useState(''),[from,setFrom]=useState(today()),[to,setTo]=useState(today()),[data,setData]=useState(null),[loading,setLoading]=useState(false);
- async function load(){setLoading(true);const {data:d,error}=await supabase.rpc('get_work_report',{period_kind:period,target_branch:branch||null,start_on:period==='custom'?from:null,end_on:period==='custom'?to:null});if(error)message(error);else setData(d);setLoading(false)}
+export function ExecutiveDashboard({profile,branches}){
+ const initialRange=presetRange('this_month');
+ const [period,setPeriod]=useState('this_month'),[periodOpen,setPeriodOpen]=useState(false),[branch,setBranch]=useState(''),[from,setFrom]=useState(initialRange[0]),[to,setTo]=useState(initialRange[1]),[data,setData]=useState(null),[loading,setLoading]=useState(false);
+ async function load(){setLoading(true);const range=period==='custom'?[from,to]:presetRange(period);const {data:d,error}=await supabase.rpc('get_work_report',{period_kind:'custom',target_branch:branch||null,start_on:range[0],end_on:range[1]});if(error)message(error);else setData(d);setLoading(false)}
  useEffect(()=>{load()},[profile.id,period,branch,from,to]);
- async function assignDepartment(){if(!selectedUser)return;const {error}=await supabase.rpc('set_employee_department',{target_employee:selectedUser,new_department:selectedDepartment});if(error)message(error);else{alert('Đã gán bộ phận.');load()}}
- const departments=data?.departments||[];return <div className='ops-stack'><section className='panel executive-filter'><div><h3>Báo cáo công việc</h3><p>Tiến độ từ các checklist hiện còn lưu trong kỳ; dữ liệu trước khi triển khai chưa có ảnh chụp lịch sử.</p></div><div><select aria-label='Khoảng báo cáo' value={period} onChange={e=>setPeriod(e.target.value)}><option value='day'>Hôm nay</option><option value='month'>Tháng hiện tại</option><option value='custom'>Khoảng tùy chọn</option></select><select aria-label='Cơ sở' value={branch} onChange={e=>setBranch(e.target.value)}><option value=''>Tất cả cơ sở</option>{branches.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select>{period==='custom'&&<><label>Từ ngày<input type='date' value={from} onChange={e=>setFrom(e.target.value)}/></label><label>Đến ngày<input type='date' min={from} value={to} onChange={e=>setTo(e.target.value)}/></label></>}<button onClick={load}>Làm mới</button></div></section>
- {profile.role==='admin'&&<section className='panel'><h3>Gán bộ phận nhân sự</h3><div className='ops-fields'><label>Nhân sự<select value={selectedUser} onChange={e=>setSelectedUser(e.target.value)}><option value=''>Chọn nhân sự</option>{users.filter(u=>u.active).map(u=><option key={u.id} value={u.id}>{u.full_name}</option>)}</select></label><label>Bộ phận<select value={selectedDepartment} onChange={e=>setSelectedDepartment(e.target.value)}>{['Lễ tân','PT','Sale'].map(x=><option key={x}>{x}</option>)}</select></label><button onClick={assignDepartment}>Lưu bộ phận</button></div></section>}
+ const choosePeriod=value=>{setPeriod(value);setPeriodOpen(false)};
+ const departments=data?.departments||[];return <div className='ops-stack'><section className='panel executive-filter'><div><h3>Báo cáo công việc</h3><p>Tiến độ từ các checklist hiện còn lưu trong kỳ; dữ liệu trước khi triển khai chưa có ảnh chụp lịch sử.</p></div><div className='work-report-controls'><div className='period-picker'><button type='button' className='period-trigger' onClick={()=>setPeriodOpen(!periodOpen)}>{period==='custom'?'Tùy chỉnh':PERIOD_LABELS[period]}<span>⌄</span></button>{periodOpen&&<div className='period-menu'>{PERIOD_GROUPS.map(group=><div className='period-group' key={group.title}><b>{group.title}</b>{group.items.map(([value,label])=><button type='button' key={value} className={period===value?'active':''} onClick={()=>choosePeriod(value)}>{label}</button>)}</div>)}<div className='period-group'><b>Tùy chỉnh</b><button type='button' className={period==='custom'?'active':''} onClick={()=>choosePeriod('custom')}>Chọn khoảng ngày</button></div></div>}</div><select className='work-branch-filter' aria-label='Cơ sở' value={branch} onChange={e=>setBranch(e.target.value)}><option value=''>Tất cả cơ sở</option>{branches.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select>{period==='custom'&&<><label>Từ ngày<input type='date' value={from} onChange={e=>setFrom(e.target.value)}/></label><label>Đến ngày<input type='date' min={from} value={to} onChange={e=>setTo(e.target.value)}/></label></>}<button type='button' className='work-refresh' onClick={load}>Làm mới</button></div></section>
  {loading?<section className='panel'>Đang tổng hợp...</section>:<><section className='panel'><h3>Kết quả theo bộ phận</h3><div className='ops-chart'>{['Lễ tân','PT','Sale'].map(name=>{const x=departments.find(d=>d.department===name),pct=Number(x?.percent||0);return <div className='ops-chart-item' key={name}><strong>{x?.total?pct+'%':'—'}</strong><div className='ops-chart-track'><i style={{height:pct+'%'}}/></div><b>{name}</b><small>{x?.total?`${x.done}/${x.total} mục`:'Chưa có dữ liệu'}</small></div>})}</div></section><section className='panel'><h3>Checklist chưa hoàn thành theo chu kỳ</h3><div className='ops-summary'>{['Ngày','Tuần','Tháng'].map((x,i)=><span key={x}>{x}: <b>{data?.overdue?.[['daily','weekly','monthly'][i]]||0}</b></span>)}</div></section><section className='panel'><h3>Theo cơ sở</h3><div className='ops-table'><table><thead><tr><th>Cơ sở</th><th>Hoàn thành</th><th>Chưa hoàn thành</th></tr></thead><tbody>{(data?.branches||[]).map(x=><tr key={x.branch_id}><td>{x.branch_name}</td><td>{x.total?x.percent+'%':'—'}</td><td>{x.total-x.done}</td></tr>)}</tbody></table></div></section></>}
  </div>
 }
