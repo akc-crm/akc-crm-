@@ -7,7 +7,9 @@ const permissions=readFileSync(new URL('../supabase/migrations/2026092301_recept
 const appointments=readFileSync(new URL('../src/SalesAppointments.jsx',import.meta.url),'utf8');
 const appointmentSql=readFileSync(new URL('../supabase/migrations/2026092901_sales_appointments.sql',import.meta.url),'utf8');
 assert.doesNotMatch(app,/Báo cáo công việc/,'Menu báo cáo công việc phải được gộp vào Báo cáo');
-assert.match(app,/base==='Báo cáo'.*<Reports.*<ExecutiveDashboard/,'Báo cáo phải chứa cả báo cáo CRM và báo cáo công việc');
+const reportRoute=app.match(/base==='Báo cáo'&&<>(.*?)<\/\>}/)?.[1]||'';
+assert.match(reportRoute,/<Reports/,'Báo cáo phải chứa báo cáo CRM');
+assert.match(reportRoute,/<ExecutiveDashboard/,'Báo cáo phải chứa báo cáo công việc');
 assert.match(app,/Nghỉ phép/);
 assert.match(ui,/get_work_report/);
 assert.match(ui,/submit_leave_request/);
