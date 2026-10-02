@@ -751,8 +751,8 @@ function TrainingPlanWizard({profile}){
   <div className='training-plan-page'>
    <div className='tp-success'>
     <div className='tp-success-icon'>✓</div>
-    <h2>Tạo kế hoạch thành công!</h2>
-    <p>Kế hoạch tập luyện &amp; dinh dưỡng cho <strong>{f.name}</strong> đã được tạo và gửi qua email <strong>{result?.email||f.email}</strong>.</p>
+    <h2>Đã gửi kế hoạch qua email</h2>
+    <p>Email người nhận: <strong>{result?.email||f.email}</strong></p>
     <p style={{fontSize:'0.85rem',color:'#6b7280',marginTop:'0.5rem'}}>Học viên vui lòng kiểm tra hộp thư (kể cả thư mục Spam).</p>
     <button className='primary' onClick={resetForm}>Tạo kế hoạch mới</button>
    </div>
