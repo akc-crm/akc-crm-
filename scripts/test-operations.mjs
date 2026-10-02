@@ -6,6 +6,7 @@ const sql=readFileSync(new URL('../supabase/migrations/2026092101_operations_app
 const permissions=readFileSync(new URL('../supabase/migrations/2026092301_reception_permissions.sql',import.meta.url),'utf8');
 const appointments=readFileSync(new URL('../src/SalesAppointments.jsx',import.meta.url),'utf8');
 const appointmentSql=readFileSync(new URL('../supabase/migrations/2026092901_sales_appointments.sql',import.meta.url),'utf8');
+const kiotLeaveTest=readFileSync(new URL('../api/leave/kiot-sync-test.js',import.meta.url),'utf8');
 assert.doesNotMatch(app,/Báo cáo công việc/,'Menu báo cáo công việc phải được gộp vào Báo cáo');
 const reportRoute=app.match(/base==='Báo cáo'&&<>(.*?)<\/\>}/)?.[1]||'';
 assert.match(reportRoute,/<Reports/,'Báo cáo phải chứa báo cáo CRM');
@@ -36,4 +37,8 @@ assert.match(appointments,/update_sales_appointment_result/,'Thiếu luồng c�
 assert.match(appointmentSql,/mark_stale_sales_appointments/,'Thiếu xử lý lịch quá hạn chưa cập nhật');
 assert.match(appointmentSql,/status='Đã mua gói'/,'Kết quả chốt phải cập nhật Lead');
 assert.doesNotMatch(appointmentSql,/drop table|truncate table|delete from/i);
+assert.match(ui,/Test Kiot/,'Thiếu nút mô phỏng đồng bộ phép sang Kiot');
+assert.match(ui,/CHẾ ĐỘ TEST · KHÔNG GHI KIOT/,'Bản mô phỏng phải hiển thị rõ không ghi Kiot');
+assert.match(kiotLeaveTest,/will_write_to_kiot:\s*false/,'Endpoint test không được phép ghi Kiot');
+assert.doesNotMatch(kiotLeaveTest,/kiot(Post|Put|Delete)/,'Endpoint test chỉ được đọc danh mục Kiot');
 console.log('PASS: operations routes, query bounds and leave transaction guards');
