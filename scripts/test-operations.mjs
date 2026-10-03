@@ -41,4 +41,6 @@ assert.match(ui,/Test Kiot/,'Thiếu nút mô phỏng đồng bộ phép sang Ki
 assert.match(ui,/CHẾ ĐỘ TEST · KHÔNG GHI KIOT/,'Bản mô phỏng phải hiển thị rõ không ghi Kiot');
 assert.match(kiotLeaveTest,/will_write_to_kiot:\s*false/,'Endpoint test không được phép ghi Kiot');
 assert.doesNotMatch(kiotLeaveTest,/kiot(Post|Put|Delete)/,'Endpoint test chỉ được đọc danh mục Kiot');
+assert.match(kiotLeaveTest,/akc-leave-kiot-dry-run/,'Thiếu kết nối n8n dry-run cho đơn nghỉ một ngày');
+assert.match(ui,/n8n dry-run/,'Thiếu trạng thái xác nhận của n8n trên màn hình test');
 console.log('PASS: operations routes, query bounds and leave transaction guards');

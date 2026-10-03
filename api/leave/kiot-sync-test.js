@@ -2,6 +2,7 @@ import { allowCors, getSupabaseAdmin, isUuid, json, readBody } from '../show/_su
 
 const KIOT_TOKEN_URL = 'https://id.kiotviet.vn/connect/token';
 const KIOT_BASE_URL = 'https://public.kiotapi.com';
+const N8N_DRY_RUN_URL = process.env.N8N_LEAVE_DRY_RUN_URL || 'https://n8n.kickfits.info/webhook/akc-leave-kiot-dry-run';
 
 const cleanName = value => String(value || '')
   .toLowerCase()
@@ -113,6 +114,29 @@ export default async function handler(req, res) {
       shift_check: 'Chờ xác minh API ca làm việc',
       will_write_to_kiot: false
     }));
+    let n8nDryRun = null;
+    if (actions.length === 1 && employeeMatch && branchMatch) {
+      try {
+        const dryRunResponse = await fetch(N8N_DRY_RUN_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            test_mode: true,
+            leave_request_id: leave.id,
+            employee: { name: employee?.full_name || employee?.email || 'Nhân sự', kiot_employee_id: employee?.kiot_employee_id, matched: true },
+            branch: { name: branch?.name || 'Cơ sở', kiot_branch_id: branchMatch.id, matched: true },
+            ...actions[0]
+          })
+        });
+        const dryRunBody = await dryRunResponse.json();
+        if (!dryRunResponse.ok || !dryRunBody.success) throw new Error(dryRunBody.message || `n8n trả lỗi ${dryRunResponse.status}`);
+        n8nDryRun = dryRunBody;
+      } catch (error) {
+        warnings.push(`n8n dry-run chưa xác nhận được: ${error.message}`);
+      }
+    } else if (actions.length > 1) {
+      warnings.push('Luồng n8n thử nghiệm hiện chỉ kiểm tra đơn nghỉ đúng 1 ngày.');
+    }
     warnings.push('Bản test không ghi dữ liệu lên KiotViet và chưa loại ngày không có ca làm việc.');
 
     return json(res, 200, {
@@ -122,6 +146,7 @@ export default async function handler(req, res) {
       branch: { name: branch?.name || 'Cơ sở', kiot_branch_id: branchMatch?.id || null, matched: !!branchMatch },
       leave: { ...leave, total_days: dates.length },
       actions,
+      n8n_dry_run: n8nDryRun,
       warnings
     });
   } catch (error) {
