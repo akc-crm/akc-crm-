@@ -177,12 +177,13 @@ function App(){
 const{data:oldChecks}=await supabase.from('card_checklists').select('text,position').eq('card_id',cardId);const old=oldChecks||[];const newLines=lines.filter(l=>!old.find(o=>String(o.text).trim().toLowerCase()===l.toLowerCase()));if(newLines.length){const maxPos=old.length?Math.max(...old.map(o=>o.position||0))+1:0;await Promise.all(newLines.map((text,i)=>supabase.from('card_checklists').insert({card_id:cardId,text,position:maxPos+i,created_by:profile.id})));}}}setCardModal(null);loadBoard()}
  async function openCardModal(card){// Lazy load nội dung đầy đủ chỉ khi mở modal
   setCardModal(card);
-  const[{data:fullChecks},{data:fullComments}]=await Promise.all([
+  const[{data:fullChecks,error:checksError},{data:fullComments,error:commentsError}]=await Promise.all([
    supabase.from('card_checklists').select('*').eq('card_id',card.id).order('position',{ascending:true}),
-   supabase.from('card_comments').select('*').eq('card_id',card.id).order('created_at',{ascending:false})
+   supabase.from('card_comments').select('id,card_id,user_id,message,created_at').eq('card_id',card.id).order('created_at',{ascending:false}).limit(500)
   ]);
-  if(fullChecks)setCardChecks(prev=>{const others=prev.filter(c=>c.card_id!==card.id);return[...others,...fullChecks];});
-  if(fullComments)setCardComments(prev=>{const others=prev.filter(c=>c.card_id!==card.id);return[...fullComments,...others];});
+  if(checksError||commentsError){console.error('Không tải được chi tiết thẻ:',{checksError,commentsError});alert('Không tải đủ checklist hoặc bình luận của thẻ. Vui lòng thử mở lại thẻ.');}
+  if(!checksError&&fullChecks)setCardChecks(prev=>{const others=prev.filter(c=>c.card_id!==card.id);return[...others,...fullChecks];});
+  if(!commentsError&&fullComments)setCardComments(prev=>{const others=prev.filter(c=>c.card_id!==card.id);return[...fullComments,...others];});
  }
  async function delBoardCard(id){if(confirm('Xóa thẻ này?')){const card=boardCards.find(c=>c.id===id);const comments=cardComments.filter(c=>c.card_id===id);const{error}=await supabase.from('board_cards').delete().eq('id',id);if(error)return alert(error.message);await Promise.all([removeStorageLinks('card-images',[card?.cover_image]),removeStorageLinks('card-comments',comments.map(c=>c.message))]);setCardModal(null);setBoardCards(prev=>prev.filter(c=>c.id!==id))}}
  async function moveBoardCard(cardId,listId){const pos=boardCards.filter(c=>c.list_id===listId).length;const{error}=await supabase.from('board_cards').update({list_id:listId,position:pos,updated_at:new Date().toISOString()}).eq('id',cardId);if(error)alert(error.message);loadBoard()}
