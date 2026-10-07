@@ -1,0 +1,6 @@
+session.json
+credentials.json
+robot-config.json
+*.png
+*.lock
+node_modules/
