@@ -75,3 +75,23 @@ test('changed numeric ID invalidates a previously discovered code',async()=>{
   await main(c,'run',{api:async(c,method)=>method==='POST'?{jobs:[job]}:{},resolve:async()=>{resolved=true;return {code:'NV2',kiot_user_id:'123',name:'Vũ Đức Cường'};},saveConfig:()=>{},sync:async(candidate)=>{assert.equal(candidate.staffCode,'NV2');return {};}});
   assert.equal(resolved,true);
 });
+test('Kiot account role/branch suffix is accepted without fuzzy matching',()=>{
+  const examples=['Nguyễn Hoàng Thái Hà - PT HBT','Trần Văn Yên - PT BĐ','Triệu Văn Bằng - PT BĐ','Triệu Hồng Hải - PT BĐ'];
+  for(const name of examples) {
+    const employee={kiot_employee_id:'123',full_name:name.split(' - ')[0]};
+    assert.equal(matchApiEmployee(employee,[{id:123,name}]).id,123);
+    assert.throws(()=>matchApiEmployee(employee,[{id:123,name},{id:124,name:employee.full_name}]),/Trùng tên/);
+    assert.throws(()=>matchApiEmployee(employee,[{id:123,name:employee.full_name+' khác - PT BĐ'}]));
+  }
+});
+test('setup entry point exports resolver before loading worker',()=>{
+  const fs=require('node:fs'),path=require('node:path'),os=require('node:os');
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'akc-setup-import-'));
+  try {
+    for(const file of ['setup.cjs','worker.cjs','attendance.cjs']) fs.copyFileSync(path.join(__dirname,file),path.join(dir,file));
+    const child=require('node:child_process').spawnSync(process.execPath,[path.join(dir,'setup.cjs')],{encoding:'utf8',timeout:10000});
+    assert.equal(child.status,1);
+    assert.match(child.stderr,/ENOENT/);
+    assert.doesNotMatch(child.stderr,/circular dependency|non-existent property/);
+  } finally { fs.rmSync(dir,{recursive:true,force:true}); }
+});
