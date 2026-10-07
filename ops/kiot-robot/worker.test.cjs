@@ -95,3 +95,37 @@ test('setup entry point exports resolver before loading worker',()=>{
     assert.doesNotMatch(child.stderr,/circular dependency|non-existent property/);
   } finally { fs.rmSync(dir,{recursive:true,force:true}); }
 });
+const {targetHeader}=require('./attendance.cjs');
+function calendarPage({ambiguous=false,stuck=false}={}) {
+  let week=2; const clicks=[];
+  const names=['Thứ hai','Thứ ba','Thứ tư','Thứ năm','Thứ sáu','Thứ bảy','Chủ nhật'];
+  const textFor=text=>{
+    if(text instanceof RegExp&&text.source.includes('Tuần')) return `Tuần ${week} - Th. 10 2026`;
+    const index=names.findIndex(name=>text instanceof RegExp&&text.test(name));
+    if(index>=0) return names[index]+' '+String(5+(week-2)*7+index).padStart(2,'0');
+    return String(text);
+  };
+  const node=text=>({filter(){return this;},first(){return this;},count:async()=>1,waitFor:async()=>{},innerText:async()=>textFor(text),evaluate:async fn=>fn({innerText:textFor(text),parentElement:null})});
+  const page={getByText:node,waitForTimeout:async()=>{},waitForFunction:async()=>{},locator:selector=>{
+    assert.equal(selector,'.ts-header-filter-calendar');
+    return {filter(){return this;},count:async()=>ambiguous?2:1,locator:selector=>({filter(){return this;},count:async()=>1,click:async()=>{clicks.push(selector);if(!stuck) week+=selector==='a#prev-btn'?-1:1;}})};
+  }};
+  return {page,clicks};
+}
+test('calendar navigates to old date using scoped Kiot previous button',async()=>{
+  const {page,clicks}=calendarPage();
+  // Within-month previous week: 03 October is Saturday.
+  const header=await targetHeader(page,'2026-10-03');
+  assert.match(await header.innerText(),/Thứ bảy 03/);
+  assert.deepEqual(clicks,['a#prev-btn']);
+});
+test('calendar uses next button for a later week',async()=>{
+  const {page,clicks}=calendarPage();
+  const header=await targetHeader(page,'2026-10-15');
+  assert.match(await header.innerText(),/Thứ năm 15/);
+  assert.deepEqual(clicks,['a#next-btn']);
+});
+test('ambiguous or non-moving calendar stops instead of opening wrong date',async()=>{
+  await assert.rejects(targetHeader(calendarPage({ambiguous:true}).page,'2026-10-15'),/duy nhất cụm/);
+  await assert.rejects(targetHeader(calendarPage({stuck:true}).page,'2026-10-15'),/chưa chuyển tuần/);
+});
