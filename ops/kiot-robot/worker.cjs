@@ -2,8 +2,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { syncAttendance } = require('./attendance.cjs');
+const { resolveStaffCode, saveConfig } = require('./setup.cjs');
 
-function validateJob(job, config) {
+function validateJob(job, config, allowUnmapped = false) {
   if (job.context_error) throw new Error(job.context_error);
   if (job.leave_status !== 'Đã duyệt') throw new Error('Đơn nghỉ không còn được duyệt.');
   if (!job.employee?.full_name || job.employee.id !== job.employee_id || job.branch?.id !== job.branch_id) throw new Error('Thiếu thông tin đối chiếu CRM.');
@@ -12,7 +13,7 @@ function validateJob(job, config) {
   const staffCode = config.staff_codes?.[job.employee_id] ||
     (/^NV\d+$/.test(String(job.employee.kiot_employee_id)) ? String(job.employee.kiot_employee_id) : null);
   const branchName = config.branch_names?.[job.branch_id];
-  if (!staffCode || !/^NV\d+$/.test(staffCode)) throw new Error('Chưa gán mã chấm công NV cho nhân viên ' + job.employee_id);
+  if (!allowUnmapped && (!staffCode || !/^NV\d+$/.test(staffCode))) throw new Error('Chưa gán mã chấm công NV cho nhân viên ' + job.employee_id);
   if (!branchName) throw new Error('Chưa gán tên cơ sở Kiot cho ' + job.branch_id);
   return {...job, staffCode, branchName, employeeName:job.employee.full_name};
 }
@@ -53,7 +54,19 @@ async function main(config, mode = 'check', deps = {}) {
   if (!jobs?.length) { console.log('KHONG CO VIEC; KHONG MO TRINH DUYET.'); return; }
   const job = jobs[0];
   let result, error;
-  try { result = await sync(validateJob(job, config), config); }
+  try {
+    const candidate=validateJob(job,config,true);
+    const link=config.staff_links?.[job.employee_id];
+    if (!candidate.staffCode || (link && (link.kiot_user_id!==String(job.employee.kiot_employee_id) || link.name!==job.employee.full_name))) {
+      const resolved=await (deps.resolve || resolveStaffCode)(config,job.employee,candidate.branchName);
+      if(!/^NV\d+$/.test(resolved.code)) throw new Error('Mã chấm công tự ghép không hợp lệ.');
+      config.staff_codes ||= {}; config.staff_links ||= {};
+      config.staff_codes[job.employee_id]=resolved.code;
+      config.staff_links[job.employee_id]=resolved;
+      (deps.saveConfig || saveConfig)(config);
+    }
+    result = await sync(validateJob(job, config), config);
+  }
   catch (e) { error = e.message; }
   // If reporting fails after a save, leave the lease to expire. A retry reads Kiot
   // before writing and recognizes the already-saved status.
