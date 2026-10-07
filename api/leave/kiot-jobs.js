@@ -17,7 +17,7 @@ export default async function handler(req, res) {
       const [profiles, branches, queue] = await Promise.all([
         supabase.from('profiles').select('id,full_name,kiot_employee_id').eq('active', true).limit(1000),
         supabase.from('branches').select('id,name').limit(100),
-        supabase.from('kiot_attendance_jobs').select('status').in('status', ['pending','processing','failed']).limit(1000)
+        supabase.from('kiot_attendance_jobs').select('id,employee_id,branch_id,work_date,attendance_type,status').in('status', ['pending','processing','failed']).limit(1000)
       ]);
       for (const r of [profiles, branches, queue]) if (r.error) throw r.error;
       return json(res, 200, { success:true, enabled:process.env.KIOT_ATTENDANCE_SYNC_ENABLED === 'true',
