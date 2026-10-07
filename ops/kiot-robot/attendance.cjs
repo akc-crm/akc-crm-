@@ -56,21 +56,12 @@ async function targetHeader(page, date) {
     if (shownMonth===month && shownYear===year && sunday < monday) throw new Error('Tuần giao tháng cần kiểm tra lịch; chưa ghi Kiot.');
     const direction = (year*12+month !== shownYear*12+shownMonth)
       ? Math.sign(year*12+month-shownYear*12-shownMonth) : (day<monday ? -1 : 1);
-    await label.evaluate((el, direction) => {
-      const r=el.getBoundingClientRect();
-      const center=r.x+r.width/2;
-      const candidates=Array.from(document.querySelectorAll('button,a,[role="button"],[ng-click]'))
-        .filter(n=>!n.contains(el)&&!el.contains(n))
-        .map(n=>({n,b:n.getBoundingClientRect()}))
-        .filter(({b})=>b.width>0&&b.width<=45&&b.height>0&&Math.abs(b.y-r.y)<12&&
-          (direction<0 ? b.x+b.width<=center&&center-(b.x+b.width)<180 : b.x>=center&&b.x-center<180))
-        .sort((a,b)=>Math.abs(a.b.x+a.b.width/2-center)-Math.abs(b.b.x+b.b.width/2-center));
-      if (!candidates.length) throw new Error('Chưa xác định nút chuyển tuần.');
-      document.querySelectorAll('[data-akc-week-arrow]').forEach(n=>n.removeAttribute('data-akc-week-arrow'));
-      candidates[0].n.setAttribute('data-akc-week-arrow','active');
-    },direction);
+    const calendar=page.locator('.ts-header-filter-calendar').filter({visible:true});
+    if(await calendar.count()!==1) throw new Error('Không xác định duy nhất cụm chuyển tuần.');
+    const arrow=calendar.locator(direction<0 ? 'a#prev-btn' : 'a#next-btn').filter({visible:true});
+    if(await arrow.count()!==1) throw new Error('Không xác định duy nhất nút chuyển tuần.');
     const before = await headerInfo(visibleText(page,/Thứ hai/));
-    await page.locator('[data-akc-week-arrow="active"]').click();
+    await arrow.click();
     await page.waitForTimeout(1500);
     await loaded(page);
     if ((await label.innerText())===title && (await headerInfo(visibleText(page,/Thứ hai/)))===before) throw new Error('Bảng chưa chuyển tuần; chưa ghi Kiot.');
@@ -174,4 +165,4 @@ async function syncAttendance(job, config) {
     return {outcome:'saved_and_verified',work_date:job.work_date,status:after.status,shift,staff_code:job.staffCode,branch:job.branchName};
   } finally { clearTimeout(deadline); await browser.close(); }
 }
-module.exports={syncAttendance,recordedStatus,dateLabel};
+module.exports={syncAttendance,recordedStatus,dateLabel,targetHeader};
