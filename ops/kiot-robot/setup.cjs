@@ -2,6 +2,9 @@ const fs=require('node:fs');
 const path=require('node:path');
 const normalize=value=>String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/akc|fitness|[^a-z0-9]/g,'');
 const personName=value=>String(value||'').normalize('NFC').trim().replace(/\s+/g,' ').toLocaleLowerCase('vi-VN');
+// Kiot login accounts carry role/branch suffixes, e.g. "Trần Văn Yên - PT BĐ".
+// Strip only this explicit format; never accept substring/fuzzy name matches.
+const accountPerson=value=>String(value||'').replace(/\s+-\s+(?:PT|HLV|LT|SALE|QL|FM|GS)\s+[\p{L}\p{N} .]{1,50}$/u,'');
 
 async function kiotList(config,type) {
   const response=await fetch(new URL('/api/show/kiot-search?type='+type+'&q=all',config.crm_url),{signal:AbortSignal.timeout(30000),redirect:'error'});
@@ -14,8 +17,8 @@ function matchApiEmployee(employee,users) {
   const matches=users.filter(u=>String(u.id)===id);
   if(!/^\d+$/.test(id)||matches.length!==1) throw new Error('ID nhân viên CRM không khớp duy nhất tài khoản Kiot: '+employee.full_name);
   const user=matches[0];
-  if(user.isActive===false||personName(user.name)!==personName(employee.full_name)) throw new Error('Tên/trạng thái tài khoản Kiot không khớp CRM: '+employee.full_name);
-  if(users.filter(u=>personName(u.name)===personName(user.name)).length!==1) throw new Error('Trùng tên tài khoản Kiot; cần đối chiếu riêng: '+employee.full_name);
+  if(user.isActive===false||personName(accountPerson(user.name))!==personName(employee.full_name)) throw new Error('Tên/trạng thái tài khoản Kiot không khớp CRM: '+employee.full_name+' / '+user.name);
+  if(users.filter(u=>personName(accountPerson(u.name))===personName(employee.full_name)).length!==1) throw new Error('Trùng tên tài khoản Kiot; cần đối chiếu riêng: '+employee.full_name);
   return user;
 }
 function codeFromOptions(employee,texts) {
@@ -48,7 +51,7 @@ async function resolveStaffCode(config,employee,branchName,deps={}) {
     }
     await visible(branchName).first().waitFor();
     const search=page.getByPlaceholder('Tìm kiếm nhân viên',{exact:true}).filter({visible:true}).first();
-    await search.fill(user.name); await search.press('ArrowDown');
+    await search.fill(employee.full_name); await search.press('ArrowDown');
     const options=page.getByRole('option').filter({visible:true});
     await options.first().waitFor();
     // Wait for asynchronous search to settle before deciding uniqueness.
@@ -92,5 +95,5 @@ async function setup() {
   console.log('CHI DOC MA; KHONG CLAIM DON; KHONG LUU CHAM CONG.');
   if(failures) process.exitCode=1;
 }
-if(require.main===module) setup().catch(e=>{console.error('LOI CAU HINH:',e.message);process.exitCode=1;});
 module.exports={resolveStaffCode,matchApiEmployee,codeFromOptions,saveConfig};
+if(require.main===module) setup().catch(e=>{console.error('LOI CAU HINH:',e.message);process.exitCode=1;});
