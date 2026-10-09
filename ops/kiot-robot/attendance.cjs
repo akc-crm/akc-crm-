@@ -7,8 +7,8 @@ const escape = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const visibleText = (page, text) => page.getByText(text, {exact:true}).filter({visible:true});
 const dateLabel = date => date.slice(8,10) + '/' + date.slice(5,7) + '/' + date.slice(0,4);
 const normalizedName = name => name.normalize('NFC').trim().replace(/\s+/g,' ').toLocaleLowerCase('vi-VN');
-const employeePattern = name => new RegExp('^'+name.trim().split(/\s+/).map(escape).join('\\s+')+'$','iu');
-const optionPattern = (name, code) => new RegExp('^'+name.trim().split(/\s+/).map(escape).join('\\s+')+'\\s*'+escape(code)+'$','iu');
+const employeePattern = name => new RegExp('^\\s*'+name.trim().split(/\s+/).map(escape).join('\\s+')+'\\s*$','iu');
+const optionPattern = (name, code) => new RegExp('^\\s*'+name.trim().split(/\s+/).map(escape).join('\\s+')+'\\s*'+escape(code)+'\\s*$','iu');
 
 function assertRecordIdentity(text, job) {
   const heading=text.split('Thời gian')[0];
