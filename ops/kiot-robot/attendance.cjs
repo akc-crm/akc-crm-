@@ -6,6 +6,16 @@ const dayPattern = /Thứ hai|Thứ ba|Thứ tư|Thứ năm|Thứ sáu|Thứ b�
 const escape = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const visibleText = (page, text) => page.getByText(text, {exact:true}).filter({visible:true});
 const dateLabel = date => date.slice(8,10) + '/' + date.slice(5,7) + '/' + date.slice(0,4);
+const normalizedName = name => name.normalize('NFC').trim().replace(/\s+/g,' ').toLocaleLowerCase('vi-VN');
+const employeePattern = name => new RegExp('^'+name.trim().split(/\s+/).map(escape).join('\\s+')+'$','iu');
+const optionPattern = (name, code) => new RegExp('^'+name.trim().split(/\s+/).map(escape).join('\\s+')+'\\s*'+escape(code)+'$','iu');
+
+function assertRecordIdentity(text, job) {
+  const heading=text.split('Thời gian')[0];
+  const nameMatches=heading.split(/\r?\n/).some(line=>normalizedName(line)===normalizedName(job.employeeName));
+  const codeMatches=new RegExp('(?:^|\\s)'+escape(job.staffCode)+'(?:\\s|$)').test(heading);
+  if(!nameMatches||!codeMatches||!text.includes(dateLabel(job.work_date))) throw new Error('Sai nhân viên/ngày.');
+}
 
 function recordedStatus(text) {
   const heading = text.split('Thời gian')[0];
@@ -85,7 +95,7 @@ async function locateForm(page, job) {
   },dateLabel(job.work_date));
   const form=page.locator('[data-akc-attendance-form="active"]');
   const text=await form.innerText();
-  if(!text.includes(job.employeeName)||!text.includes(job.staffCode)||!text.includes(dateLabel(job.work_date))) throw new Error('Sai nhân viên/ngày.');
+  assertRecordIdentity(text,job);
   const shift=text.match(/Ca\s+\d+\s*\(\d{2}:\d{2}\s*-\s*\d{2}:\d{2}\)/)?.[0];
   if(!shift) throw new Error('Không đọc được ca đã xếp.');
   return {form,text,shift,status:recordedStatus(text)};
@@ -108,14 +118,14 @@ async function openRecord(browser, config, job) {
     await branch.first().waitFor({timeout:20000});
     const search=page.getByPlaceholder('Tìm kiếm nhân viên',{exact:true}).filter({visible:true}).first();
     await search.fill(job.employeeName); await search.press('ArrowDown');
-    const option=page.getByRole('option',{name:new RegExp('^'+escape(job.employeeName)+'\\s*'+escape(job.staffCode)+'$')}).filter({visible:true});
+    const option=page.getByRole('option',{name:optionPattern(job.employeeName,job.staffCode)}).filter({visible:true});
     await option.waitFor({timeout:20000});
     await option.click(); await page.keyboard.press('Escape');
     await page.waitForTimeout(1500); await loaded(page);
     const header=await targetHeader(page,job.work_date);
     const column=await header.boundingBox();
     if(!column) throw new Error('Không đọc được cột ngày.');
-    const names=visibleText(page,job.employeeName);
+    const names=visibleText(page,employeePattern(job.employeeName));
     const matches=[];
     for(let i=0;i<await names.count();i++) {
       const box=await names.nth(i).boundingBox();
@@ -165,4 +175,4 @@ async function syncAttendance(job, config) {
     return {outcome:'saved_and_verified',work_date:job.work_date,status:after.status,shift,staff_code:job.staffCode,branch:job.branchName};
   } finally { clearTimeout(deadline); await browser.close(); }
 }
-module.exports={syncAttendance,recordedStatus,dateLabel,targetHeader};
+module.exports={syncAttendance,recordedStatus,dateLabel,targetHeader,employeePattern,optionPattern,assertRecordIdentity};
