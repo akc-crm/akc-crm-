@@ -5,7 +5,10 @@ const {recordedStatus}=require('./attendance.cjs');
 const {employeePattern,optionPattern,assertRecordIdentity}=require('./attendance.cjs');
 test('attendance name matching accepts case and spacing without partial names',()=>{
   assert.ok(employeePattern('NAY Y KHANG').test('Nay Y Khang'));
+  assert.ok(employeePattern('NAY Y KHANG').test(' Nay Y Khang '));
+  assert.ok(employeePattern('Triệu Văn Bằng ').test(' Triệu Văn Bằng '));
   assert.ok(optionPattern('NAY Y KHANG','NV000768').test('Nay Y Khang\nNV000768'));
+  assert.ok(optionPattern('NAY Y KHANG','NV000768').test(' Nay Y Khang\nNV000768 '));
   assert.ok(employeePattern('Triệu Văn Bằng').test('TRIỆU  VĂN BẰNG'));
   assert.ok(!employeePattern('NAY Y KHANG').test('Nay Y Khang A'));
   assert.ok(!optionPattern('NAY Y KHANG','NV000768').test('Nay Y Khang NV0007681'));
