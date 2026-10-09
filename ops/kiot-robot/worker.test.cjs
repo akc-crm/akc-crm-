@@ -2,6 +2,22 @@ const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const {main,validateJob}=require('./worker.cjs');
 const {recordedStatus}=require('./attendance.cjs');
+const {employeePattern,optionPattern,assertRecordIdentity}=require('./attendance.cjs');
+test('attendance name matching accepts case and spacing without partial names',()=>{
+  assert.ok(employeePattern('NAY Y KHANG').test('Nay Y Khang'));
+  assert.ok(optionPattern('NAY Y KHANG','NV000768').test('Nay Y Khang\nNV000768'));
+  assert.ok(employeePattern('Triệu Văn Bằng').test('TRIỆU  VĂN BẰNG'));
+  assert.ok(!employeePattern('NAY Y KHANG').test('Nay Y Khang A'));
+  assert.ok(!optionPattern('NAY Y KHANG','NV000768').test('Nay Y Khang NV0007681'));
+});
+test('modal identity accepts name case but rejects wrong name, code and date',()=>{
+  const j={employeeName:'NAY Y KHANG',staffCode:'NV000768',work_date:'2026-10-10'};
+  const text='Chấm công\nNay Y Khang\nNV000768\nChưa chấm công\nThời gian\nThứ 7, 10/10/2026';
+  assert.doesNotThrow(()=>assertRecordIdentity(text,j));
+  for(const replacement of [text.replace('Khang','Khang A'),text.replace('NV000768','NV0007681'),text.replace('10/10/2026','11/10/2026')]) {
+    assert.throws(()=>assertRecordIdentity(replacement,j),/Sai nhân viên/);
+  }
+});
 const config={crm_url:'https://crm.kickfits.info',worker_key:'x'.repeat(64),write_enabled:true,
   staff_codes:{staff:'NV2100338'},branch_names:{branch:'AKC Fitness Long Biên'}};
 const job={id:'job',employee_id:'staff',branch_id:'branch',leave_status:'Đã duyệt',
