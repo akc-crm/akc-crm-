@@ -62,7 +62,7 @@ begin
   left join public.profiles p on p.id = c.owner_id
   left join public.employee_departments ed on ed.employee_id = p.id
   where c.due_date = snapshot_on
-  group by b.branch_id, department
+  group by 2, 3
   having coalesce(
     ed.department,
     case
@@ -167,7 +167,7 @@ begin
       and c.due_date = report_today
       and (target_branch is null or b.branch_id = target_branch)
       and (public.akc_profile_role() = 'admin' or public.akc_can_access_branch(b.branch_id::text))
-    group by b.branch_id, br.name, department
+    group by 1, 2, 3
     having coalesce(
       ed.department,
       case
