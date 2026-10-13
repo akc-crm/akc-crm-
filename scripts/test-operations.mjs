@@ -37,10 +37,8 @@ assert.match(appointments,/update_sales_appointment_result/,'Thiếu luồng c�
 assert.match(appointmentSql,/mark_stale_sales_appointments/,'Thiếu xử lý lịch quá hạn chưa cập nhật');
 assert.match(appointmentSql,/status='Đã mua gói'/,'Kết quả chốt phải cập nhật Lead');
 assert.doesNotMatch(appointmentSql,/drop table|truncate table|delete from/i);
-assert.match(ui,/Test Kiot/,'Thiếu nút mô phỏng đồng bộ phép sang Kiot');
-assert.match(ui,/CHẾ ĐỘ TEST · KHÔNG GHI KIOT/,'Bản mô phỏng phải hiển thị rõ không ghi Kiot');
+assert.doesNotMatch(ui,/kiot-sync-test|previewKiot|Test Kiot|CHẾ ĐỘ TEST/,'Giao diện production không được còn luồng Test Kiot thủ công');
 assert.match(kiotLeaveTest,/will_write_to_kiot:\s*false/,'Endpoint test không được phép ghi Kiot');
 assert.doesNotMatch(kiotLeaveTest,/kiot(Post|Put|Delete)/,'Endpoint test chỉ được đọc danh mục Kiot');
 assert.match(kiotLeaveTest,/akc-leave-kiot-dry-run/,'Thiếu kết nối n8n dry-run cho đơn nghỉ một ngày');
-assert.match(ui,/n8n dry-run/,'Thiếu trạng thái xác nhận của n8n trên màn hình test');
 console.log('PASS: operations routes, query bounds and leave transaction guards');
