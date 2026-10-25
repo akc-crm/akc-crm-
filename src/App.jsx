@@ -178,6 +178,8 @@ function App(){
 const{data:oldChecks}=await supabase.from('card_checklists').select('text,position').eq('card_id',cardId);const old=oldChecks||[];const newLines=lines.filter(l=>!old.find(o=>String(o.text).trim().toLowerCase()===l.toLowerCase()));if(newLines.length){const maxPos=old.length?Math.max(...old.map(o=>o.position||0))+1:0;await Promise.all(newLines.map((text,i)=>supabase.from('card_checklists').insert({card_id:cardId,text,position:maxPos+i,created_by:profile.id})));}}}setCardModal(null);loadBoard()}
  async function openCardModal(card){// Lazy load nội dung đầy đủ chỉ khi mở modal
   setCardModal(card);
+  // Thẻ mới chưa có ID nên chưa có checklist/bình luận để tải.
+  if(!card?.id)return;
   const[{data:fullChecks,error:checksError},{data:fullComments,error:commentsError}]=await Promise.all([
    supabase.from('card_checklists').select('*').eq('card_id',card.id).order('position',{ascending:true}),
    supabase.from('card_comments').select('id,card_id,user_id,message,created_at').eq('card_id',card.id).order('created_at',{ascending:false}).limit(500)
