@@ -14,6 +14,22 @@ const PRIORITIES=['Thấp','Vừa','Gấp','Rất gấp'];
 const DEFAULT_BOARD_BG='linear-gradient(135deg,#f8fafc,#ffffff 45%,#eef2ff)';
 const PT_SHOW_FIELDS='id,title,description,done,created_by,created_at,updated_at,item_type,customer_id,customer_name,kiot_customer_id,pt_id,pt_name,kiot_employee_id,branch_id,branch_name,show_date,start_time,end_time,service_product_id,service_product_name,price,show_status,completed_at,approved_by,approved_by_name,approved_at,rejected_by,rejected_by_name,rejected_at,reject_reason,telegram_message_id,kiot_invoice_id,kiot_invoice_code,kiot_invoice_created_at,kiot_invoice_error,show_crm_code,kiot_branch_id,discount_percent,discount_amount';
 const OPERATION_TASK_FIELDS='id,title,description,status,priority,branch_id,owner_id,reviewer_id,due_date,checklist,result_note,lead_id,created_by,created_at,updated_at';
+const CARD_IMAGE_MAX_BYTES=10*1024*1024;
+const CARD_AVATAR_IMAGE_TYPES=new Set(['image/jpeg','image/jpg','image/png','image/gif','image/webp']);
+const CUSTOMER_IMAGE_TYPES=new Set([...CARD_AVATAR_IMAGE_TYPES,'image/heic']);
+function boardImageValidationError(file,allowedTypes){
+ if(!file)return 'Chưa chọn ảnh.';
+ const type=String(file.type||'').toLowerCase();
+ if(!allowedTypes.has(type))return 'Chỉ hỗ trợ ảnh JPG, PNG, GIF, WEBP'+(allowedTypes.has('image/heic')?' hoặc HEIC':'')+'.';
+ if(file.size>CARD_IMAGE_MAX_BYTES)return 'Mỗi ảnh tối đa 10 MB.';
+ return '';
+}
+function boardImagePath(folder,cardId,file){
+ const byType={'image/jpeg':'jpg','image/jpg':'jpg','image/png':'png','image/gif':'gif','image/webp':'webp','image/heic':'heic'};
+ const ext=byType[String(file.type||'').toLowerCase()]||'jpg';
+ const nonce=globalThis.crypto?.randomUUID?.()||`${Date.now()}-${Math.random().toString(36).slice(2,10)}`;
+ return `${folder}/${cardId}/${nonce}.${ext}`;
+}
 const money=n=>Number(n||0).toLocaleString('vi-VN')+'đ';
 const today=()=>new Date().toISOString().slice(0,10);
 function bname(bs,id){return bs.find(b=>b.id===id)?.name||'Chưa gán cơ sở'}
@@ -639,51 +655,73 @@ function BoardCardModal({initial,lists,users,checks,comments,profile,onClose,onS
  const set=(k,v)=>setF({...f,[k]:v});
  const isCardManager=['admin','manager'].includes(profile.role);
  const canEditCard=isCardManager||(profile.role==='pt'&&!f.id);
+ const canManageMedia=isCardManager||(profile.role==='pt'&&!!f.id&&f.owner_id===profile.id);
  useEffect(()=>{const onKey=e=>{if(e.key==='Escape')onClose()};window.addEventListener('keydown',onKey);return()=>window.removeEventListener('keydown',onKey)},[]);
  function submitComment(){if(!f.id)return alert('Anh lưu thẻ trước rồi mới bình luận được.');if(!comment.trim())return;addComment(f.id,comment);setComment('')}
  function parseChecklistInput(v){return String(v||'').split(/[\n.;]+/).map(x=>x.trim()).filter(Boolean)}
  async function pickAvatar(e){
-  const file=e.target.files?.[0];if(!file)return;
+  const file=e.target.files?.[0];
+  e.target.value='';
+  if(!file||!f.id)return;
+  const validationError=boardImageValidationError(file,CARD_AVATAR_IMAGE_TYPES);
+  if(validationError)return alert(validationError);
+  const filename=boardImagePath('covers',f.id,file);
+  let uploaded=false;
   try{
-   const ext=file.name.split('.').pop()||'jpg';
-   const filename=`covers/${f.id||'tmp-'+Date.now()}.${ext}`;
-   const{error}=await supabase.storage.from('card-images').upload(filename,file,{upsert:true,contentType:file.type});
-   if(error)throw error;
+   const{error:uploadError}=await supabase.storage.from('card-images').upload(filename,file,{upsert:false,contentType:file.type,cacheControl:'31536000'});
+   if(uploadError)throw uploadError;
+   uploaded=true;
    const{data:urlData}=supabase.storage.from('card-images').getPublicUrl(filename);
-   set('cover_image',urlData.publicUrl);
+   const publicUrl=urlData?.publicUrl;
+   if(!publicUrl)throw new Error('Không tạo được đường dẫn ảnh');
+   const{error:saveError}=await supabase.rpc('update_board_card_cover',{p_card_id:f.id,p_cover_image:publicUrl});
+   if(saveError)throw saveError;
+   setF(prev=>({...prev,cover_image:publicUrl}));
   }catch(err){
+   if(uploaded)await supabase.storage.from('card-images').remove([filename]);
    console.error('Upload cover lỗi:',err);
-   alert('Không tải được ảnh lên Storage. Ảnh chưa được lưu để tránh làm nặng Database. Vui lòng thử lại.');
+   alert('Không thể lưu ảnh đại diện. Ảnh chưa được ghi vào thẻ, vui lòng thử lại.');
   }
  }
  async function uploadCustomerImages(e){
-  if(!f.id)return alert('Lưu thẻ trước rồi mới up ảnh KH');
   const files=[...(e.target.files||[])];
+  e.target.value='';
+  if(!f.id||!files.length)return;
+  let uploadedCount=0,failedCount=0;
   for(const file of files){
+   const validationError=boardImageValidationError(file,CUSTOMER_IMAGE_TYPES);
+   if(validationError){failedCount++;continue;}
+   const filename=boardImagePath('comments',f.id,file);
+   let uploaded=false;
    try{
-    const ext=file.name.split('.').pop()||'jpg';
-    const filename=`comments/${f.id}-${Date.now()}.${ext}`;
-    const{error}=await supabase.storage.from('card-comments').upload(filename,file,{upsert:true,contentType:file.type});
-    if(error)throw error;
+    const{error:uploadError}=await supabase.storage.from('card-comments').upload(filename,file,{upsert:false,contentType:file.type,cacheControl:'31536000'});
+    if(uploadError)throw uploadError;
+    uploaded=true;
     const{data:urlData}=supabase.storage.from('card-comments').getPublicUrl(filename);
-    addComment(f.id,urlData.publicUrl);
+    const publicUrl=urlData?.publicUrl;
+    if(!publicUrl)throw new Error('Không tạo được đường dẫn ảnh');
+    const{data:commentRow,error:commentError}=await supabase.from('card_comments').insert({card_id:f.id,user_id:profile.id,message:`IMAGE::${publicUrl}`}).select('id,card_id,user_id,message,created_at').single();
+    if(commentError)throw commentError;
+    setCardComments(prev=>[commentRow,...prev]);
+    uploadedCount++;
    }catch(err){
+    if(uploaded)await supabase.storage.from('card-comments').remove([filename]);
     console.error('Upload ảnh KH lỗi:',err);
-    alert('Không tải được ảnh khách hàng lên Storage. Ảnh chưa được lưu để tránh làm nặng Database. Vui lòng thử lại.');
+    failedCount++;
    }
   }
-  e.target.value='';
+  if(failedCount)alert(uploadedCount?`Đã tải ${uploadedCount} ảnh. ${failedCount} ảnh không hợp lệ hoặc tải thất bại.`:'Không tải được ảnh. Chỉ nhận ảnh tối đa 10 MB, đúng định dạng được hỗ trợ.');
  }
  const done=checks.filter(c=>c.done).length,total=checks.length,percent=total?Math.round(done/total*100):0;
  if(profile.role==='reception')return <div className='modal board-modal light-card-modal' onMouseDown={onClose}><section className='modal-card reception-checklist' onMouseDown={e=>e.stopPropagation()}><div className='modal-head'><div><h3>{f.title}</h3><p>{f.description||'Checklist công việc được giao'}</p></div><button type='button' onClick={onClose}>×</button></div><div className='check-title'><h4>Tiến độ</h4><span>{done}/{total} · {percent}%</span></div><div className='mini-progress'><i style={{width:percent+'%'}}></i></div><div className='checklist trello-checks compact-checks'>{checks.map(c=><label key={c.id} className='check-line reception-check'><input type='checkbox' checked={!!c.done} onChange={()=>toggleCheck(c.id,c.done)}/><span className={c.done?'check-text done':'check-text'}>{c.text}</span></label>)}{!checks.length&&<p>Thẻ này chưa có checklist.</p>}</div><button type='button' className='primary full' onClick={onClose}>Đóng</button></section></div>;
  return <div className='modal board-modal light-card-modal' onMouseDown={onClose}>
   <form className='modal-card board-card-detail trello-detail-60-40' onMouseDown={e=>e.stopPropagation()} onSubmit={e=>{e.preventDefault();onSave(f)}}>
    <div className='detail-avatar-wrap'>
-    <input disabled={!canEditCard} ref={fileRef} type='file' accept='image/*' style={{display:'none'}} onChange={pickAvatar}/>
-    <button type='button' disabled={!canEditCard} className='detail-avatar' onClick={()=>fileRef.current?.click()} title='Bấm để thêm ảnh đại diện'>
+    <input disabled={!canManageMedia} ref={fileRef} type='file' accept='image/jpeg,image/jpg,image/png,image/gif,image/webp' style={{display:'none'}} onChange={pickAvatar}/>
+    <button type='button' disabled={!canManageMedia} className='detail-avatar' onClick={()=>fileRef.current?.click()} title={canManageMedia?'Bấm để thay ảnh đại diện':'Chỉ người phụ trách thẻ hoặc quản lý mới có thể thay ảnh'}>
      {f.cover_image?<img src={f.cover_image} alt='avatar'/>:<span>+</span>}
     </button>
-    <small>Bấm vào ảnh để thay avatar</small>
+    <small>{canManageMedia?'Bấm vào ảnh để thay avatar':'Chỉ người phụ trách thẻ hoặc quản lý có thể thay avatar'}</small>
    </div>
    <div className='detail-left'>
     <h3>Chi tiết thẻ</h3>
@@ -695,7 +733,7 @@ function BoardCardModal({initial,lists,users,checks,comments,profile,onClose,onS
     {f.id&&<div className='workflow-box'><div className='workflow-head'><b>Tiến độ & nghiệm thu</b><span>{f.workflow_status||'Chưa bắt đầu'}</span></div>{f.review_note&&<p className='decision-note'>Ý kiến nghiệm thu: {f.review_note}</p>}{f.earned_kpi_points>0&&<p className='kpi-earned'>+{f.earned_kpi_points} điểm KPI</p>}{f.owner_id===profile.id&&['Chưa bắt đầu','Làm lại'].includes(f.workflow_status)&&<button type='button' onClick={()=>onWorkflow('start',f)}>Bắt đầu thực hiện</button>}{f.owner_id===profile.id&&['Đang thực hiện','Làm lại'].includes(f.workflow_status)&&<div className='result-submit'><input value={f.result_url||''} onChange={e=>set('result_url',e.target.value)} placeholder='Dán link Drive hoặc tài liệu kết quả'/><button type='button' className='primary' onClick={()=>onWorkflow('submit',f,{result_url:f.result_url})}>Gửi nghiệm thu</button></div>}{['admin','manager'].includes(profile.role)&&f.workflow_status==='Chờ nghiệm thu'&&<div className='review-actions'><button type='button' className='primary' onClick={()=>onWorkflow('approve',f,{note:prompt('Ghi chú nghiệm thu (không bắt buộc)')||''})}>Duyệt đạt</button><button type='button' className='danger' onClick={()=>{const note=prompt('Lý do yêu cầu làm lại');if(note?.trim())onWorkflow('redo',f,{note})}}>Yêu cầu làm lại</button></div>}{f.result_url&&<a href={f.result_url} target='_blank' rel='noreferrer'>Mở kết quả đã nộp</a>}</div>}
     <div className='modal-actions'>{canEditCard&&<button className='primary'>Lưu thẻ</button>}{isCardManager&&f.id&&<button type='button' className='danger' onClick={()=>onDelete(f.id)}>Xóa thẻ</button>}</div>
    </div>
-   <div className='comments detail-right'><h4>Hội thoại / Ảnh KH</h4><input disabled={!canEditCard} ref={khFileRef} type='file' accept='image/*' multiple style={{display:'none'}} onChange={uploadCustomerImages}/><button type='button' disabled={!canEditCard} className='upload-kh' onClick={()=>khFileRef.current?.click()}>+ Up ảnh thay đổi KH</button><div className='comment-list'>{comments.map(c=>{const u=users.find(x=>x.id===c.user_id),mine=c.user_id===profile.id||profile.role==='admin';return <div className='comment' key={c.id}><div className='comment-avatar'>{(u?.full_name||'?').slice(0,1)}</div><div className='comment-body'><div className='comment-head'><b>{uname(users,c.user_id)}</b><small>{String(c.created_at||'').slice(0,16).replace('T',' ')}</small>{mine&&<span><button type='button' onClick={()=>{setEditingComment(c.id);setCommentText(c.message)}}>Sửa</button><button type='button' onClick={()=>deleteComment(c.id)}>Xóa</button></span>}</div>{editingComment===c.id?<div className='comment-edit'><input value={commentText} onChange={e=>setCommentText(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){updateComment(c.id,commentText);setEditingComment(null)}}}/><button type='button' onClick={()=>{updateComment(c.id,commentText);setEditingComment(null)}}>Lưu</button></div>:((String(c.message||'').startsWith('IMAGE::')?<img className='comment-photo' src={c.message.slice(7)} alt='Ảnh KH'/>:(String(c.message||'').startsWith('https://')&&/\.(jpg|jpeg|png|gif|webp)/i.test(c.message))?<img className='comment-photo' src={c.message} alt='Ảnh KH'/>:<p>{c.message}</p>))}</div></div>})}</div>{f.id?<div className='comment-compose'><input value={comment} onChange={e=>setComment(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();submitComment()}}} placeholder='Viết bình luận...'/><button type='button' onClick={submitComment}>Gửi</button></div>:<small>Lưu thẻ trước để bật hội thoại.</small>}</div>
+   <div className='comments detail-right'><h4>Hội thoại / Ảnh KH</h4><input disabled={!canManageMedia} ref={khFileRef} type='file' accept='image/jpeg,image/jpg,image/png,image/gif,image/webp,image/heic' multiple style={{display:'none'}} onChange={uploadCustomerImages}/><button type='button' disabled={!canManageMedia} title={canManageMedia?'Tải ảnh tiến trình khách hàng':'Chỉ người phụ trách thẻ hoặc quản lý mới có thể tải ảnh'} className='upload-kh' onClick={()=>khFileRef.current?.click()}>+ Up ảnh thay đổi KH</button><div className='comment-list'>{comments.map(c=>{const u=users.find(x=>x.id===c.user_id),mine=c.user_id===profile.id||profile.role==='admin';return <div className='comment' key={c.id}><div className='comment-avatar'>{(u?.full_name||'?').slice(0,1)}</div><div className='comment-body'><div className='comment-head'><b>{uname(users,c.user_id)}</b><small>{String(c.created_at||'').slice(0,16).replace('T',' ')}</small>{mine&&<span><button type='button' onClick={()=>{setEditingComment(c.id);setCommentText(c.message)}}>Sửa</button><button type='button' onClick={()=>deleteComment(c.id)}>Xóa</button></span>}</div>{editingComment===c.id?<div className='comment-edit'><input value={commentText} onChange={e=>setCommentText(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){updateComment(c.id,commentText);setEditingComment(null)}}}/><button type='button' onClick={()=>{updateComment(c.id,commentText);setEditingComment(null)}}>Lưu</button></div>:((String(c.message||'').startsWith('IMAGE::')?<img className='comment-photo' src={c.message.slice(7)} alt='Ảnh KH'/>:(String(c.message||'').startsWith('https://')&&/\.(jpg|jpeg|png|gif|webp)/i.test(c.message))?<img className='comment-photo' src={c.message} alt='Ảnh KH'/>:<p>{c.message}</p>))}</div></div>})}</div>{f.id?<div className='comment-compose'><input value={comment} onChange={e=>setComment(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();submitComment()}}} placeholder='Viết bình luận...'/><button type='button' onClick={submitComment}>Gửi</button></div>:<small>Lưu thẻ trước để bật hội thoại.</small>}</div>
   </form>
  </div>}
 
