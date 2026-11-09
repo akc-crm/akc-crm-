@@ -9,6 +9,7 @@ const appointmentSql=readFileSync(new URL('../supabase/migrations/2026092901_sal
 const kiotLeaveTest=readFileSync(new URL('../api/leave/kiot-sync-test.js',import.meta.url),'utf8');
 const weeklyRestSql=readFileSync(new URL('../supabase/migrations/2026110901_weekly_rest_changes.sql',import.meta.url),'utf8');
 const weeklyRobot=readFileSync(new URL('../ops/kiot-robot/weekly-rest.cjs',import.meta.url),'utf8');
+const robotInstaller=readFileSync(new URL('../ops/kiot-robot/install.sh',import.meta.url),'utf8');
 assert.doesNotMatch(app,/Báo cáo công việc/,'Menu báo cáo công việc phải được gộp vào Báo cáo');
 const reportRoute=app.match(/base==='Báo cáo'&&<>(.*?)<\/\>}/)?.[1]||'';
 assert.match(reportRoute,/<Reports/,'Báo cáo phải chứa báo cáo CRM');
@@ -50,4 +51,5 @@ assert.match(weeklyRestSql,/abs\(new_rest_date-old_rest_date\)<=7/,'Ngày đổi
 assert.doesNotMatch(weeklyRestSql,/paid_days|unpaid_days|leave_balances/,'Đổi nghỉ tuần không được tác động số ngày phép');
 assert.ok(weeklyRobot.indexOf('addShift(page,job,shift,job.old_rest_date)')<weeklyRobot.indexOf('removeShift(page,job,shift,job.new_rest_date)'),'Robot phải thêm ca ngày cũ trước khi gỡ ca ngày mới');
 assert.match(weeklyRobot,/Ngày muốn nghỉ đã có giờ vào\/ra/,'Robot phải chặn ngày đã có chấm công');
+assert.match(robotInstaller,/worker\.cjs attendance\.cjs weekly-rest\.cjs setup\.cjs run\.sh/,'Bộ cài phải triển khai adapter đổi ngày nghỉ tuần');
 console.log('PASS: operations routes, query bounds and leave transaction guards');
