@@ -40,5 +40,11 @@ The queue migration was prepared separately. Confirm it is applied to Supabase
 before enabling the API. Successful/cancelled history expires after 70 days;
 failures remain for review, with at most five attempts and increasing backoff.
 
+Weekly rest-day changes use a separate request and queue from annual leave. Only
+Admin approval creates a schedule job. The robot reads the employee's single
+source shift, refuses dates with attendance or multiple shifts, adds and verifies
+that shift on the old rest day first, and only then removes it from the new rest
+day. The workflow does not read or change annual-leave balances.
+
 Checks: `node --test ops/kiot-robot/worker.test.cjs`, `npm run test:operations`,
 and shell/JavaScript syntax checks. These do not establish live UI compatibility.
