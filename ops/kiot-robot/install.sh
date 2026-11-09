@@ -7,12 +7,12 @@ test -f "$robot_dir/session.json" || { echo 'Thieu session.json. Chua thay doi c
 install -d -m 700 "$robot_dir"
 robot_stage=$(mktemp -d)
 trap 'rm -rf "$robot_stage"' EXIT
-for robot_file in worker.cjs attendance.cjs setup.cjs run.sh; do
+for robot_file in worker.cjs attendance.cjs weekly-rest.cjs setup.cjs run.sh; do
   curl --fail --silent --show-error --location --max-time 45 \
     "https://raw.githubusercontent.com/akc-crm/akc-crm-/$robot_ref/ops/kiot-robot/$robot_file" \
     -o "$robot_stage/$robot_file"
 done
-for robot_file in worker.cjs attendance.cjs setup.cjs run.sh; do
+for robot_file in worker.cjs attendance.cjs weekly-rest.cjs setup.cjs run.sh; do
   install -m 600 "$robot_stage/$robot_file" "$robot_dir/$robot_file"
 done
 chmod 700 "$robot_dir/run.sh"
