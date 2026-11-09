@@ -2,6 +2,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { syncAttendance } = require('./attendance.cjs');
+const { syncWeeklyRestChange } = require('./weekly-rest.cjs');
 const { resolveStaffCode, saveConfig } = require('./setup.cjs');
 
 function validateJob(job, config, allowUnmapped = false) {
@@ -18,6 +19,20 @@ function validateJob(job, config, allowUnmapped = false) {
   return {...job, staffCode, branchName, employeeName:job.employee.full_name};
 }
 
+function validateWeeklyRestJob(job,config,allowUnmapped=false){
+ if(job.context_error)throw new Error(job.context_error);
+ if(job.job_type!=='weekly_rest_change'||job.change_status!=='Đã duyệt')throw new Error('Yêu cầu đổi ngày nghỉ tuần không còn được duyệt.');
+ if(!job.employee?.full_name||job.employee.id!==job.employee_id||job.branch?.id!==job.branch_id)throw new Error('Thiếu thông tin đối chiếu CRM.');
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(job.old_rest_date)||!/^\d{4}-\d{2}-\d{2}$/.test(job.new_rest_date))throw new Error('Ngày đổi nghỉ tuần không hợp lệ.');
+ const distance=Math.abs((new Date(job.new_rest_date+'T12:00:00Z')-new Date(job.old_rest_date+'T12:00:00Z'))/86400000);
+ if(!distance||distance>7)throw new Error('Hai ngày đổi nghỉ phải khác nhau và cách nhau không quá 7 ngày.');
+ const staffCode=config.staff_codes?.[job.employee_id]||(/^NV\d+$/.test(String(job.employee.kiot_employee_id))?String(job.employee.kiot_employee_id):null);
+ const branchName=config.branch_names?.[job.branch_id];
+ if(!allowUnmapped&&(!staffCode||!/^NV\d+$/.test(staffCode)))throw new Error('Chưa gán mã chấm công NV cho nhân viên '+job.employee_id);
+ if(!branchName)throw new Error('Chưa gán tên cơ sở Kiot cho '+job.branch_id);
+ return {...job,staffCode,branchName,employeeName:job.employee.full_name};
+}
+
 async function api(config, method, body) {
   const response = await fetch(new URL('/api/leave/kiot-jobs', config.crm_url), {
     method, headers:{'Content-Type':'application/json','x-akc-worker-key':config.worker_key},
@@ -31,7 +46,8 @@ async function api(config, method, body) {
 
 async function main(config, mode = 'check', deps = {}) {
   const request = deps.api || api;
-  const sync = deps.sync || syncAttendance;
+  const attendanceSync=deps.sync||syncAttendance;
+  const weeklySync=deps.weeklySync||syncWeeklyRestChange;
   if (new URL(config.crm_url).protocol !== 'https:' || String(config.worker_key || '').length <= 20) throw new Error('Cấu hình CRM/key chưa hợp lệ.');
   if (mode === 'check') {
     const data = await request(config, 'GET');
@@ -44,7 +60,9 @@ async function main(config, mode = 'check', deps = {}) {
   if (!['run','preview'].includes(mode)) throw new Error('Chỉ dùng check, preview hoặc run.');
   if (mode === 'preview') {
     const job = JSON.parse(fs.readFileSync(process.argv[3], 'utf8'));
-    const result = await sync(validateJob(job, config), {...config, write_enabled:false});
+    const result = job.job_type==='weekly_rest_change'
+      ? await weeklySync(validateWeeklyRestJob(job,config),{...config,write_enabled:false})
+      : await attendanceSync(validateJob(job, config), {...config, write_enabled:false});
     console.log('PREVIEW:', JSON.stringify(result));
     return result;
   }
@@ -55,7 +73,8 @@ async function main(config, mode = 'check', deps = {}) {
   const job = jobs[0];
   let result, error;
   try {
-    const candidate=validateJob(job,config,true);
+    const weekly=job.job_type==='weekly_rest_change';
+    const candidate=weekly?validateWeeklyRestJob(job,config,true):validateJob(job,config,true);
     const link=config.staff_links?.[job.employee_id];
     if (!candidate.staffCode || (link && (link.kiot_user_id!==String(job.employee.kiot_employee_id) || link.name!==job.employee.full_name))) {
       const resolved=await (deps.resolve || resolveStaffCode)(config,job.employee,candidate.branchName);
@@ -65,12 +84,12 @@ async function main(config, mode = 'check', deps = {}) {
       config.staff_links[job.employee_id]=resolved;
       (deps.saveConfig || saveConfig)(config);
     }
-    result = await sync(validateJob(job, config), config);
+    result = weekly?await weeklySync(validateWeeklyRestJob(job,config),config):await attendanceSync(validateJob(job,config),config);
   }
   catch (e) { error = e.message; }
   // If reporting fails after a save, leave the lease to expire. A retry reads Kiot
   // before writing and recognizes the already-saved status.
-  await request(config, 'PATCH', {worker_name:worker, job_id:job.id, success:!error,
+  await request(config, 'PATCH', {worker_name:worker,job_id:job.id,job_type:job.job_type||'attendance',success:!error,
     result:result || {}, error:error || null});
   if (error) throw new Error(error);
   console.log('DA DONG BO:', job.id, JSON.stringify(result));
@@ -82,4 +101,4 @@ if (require.main === module) {
   Promise.resolve().then(() => main(JSON.parse(fs.readFileSync(configPath,'utf8')), process.argv[2] || 'check'))
     .catch(error => { console.error('LOI ROBOT:', error.message); process.exitCode = 1; });
 }
-module.exports = {main, validateJob, api};
+module.exports = {main, validateJob, validateWeeklyRestJob, api};

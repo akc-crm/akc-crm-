@@ -175,4 +175,4 @@ async function syncAttendance(job, config) {
     return {outcome:'saved_and_verified',work_date:job.work_date,status:after.status,shift,staff_code:job.staffCode,branch:job.branchName};
   } finally { clearTimeout(deadline); await browser.close(); }
 }
-module.exports={syncAttendance,recordedStatus,dateLabel,targetHeader,employeePattern,optionPattern,assertRecordIdentity};
+module.exports={syncAttendance,recordedStatus,dateLabel,targetHeader,employeePattern,optionPattern,assertRecordIdentity,loaded,locateForm,visibleText};

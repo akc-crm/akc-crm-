@@ -7,6 +7,8 @@ const permissions=readFileSync(new URL('../supabase/migrations/2026092301_recept
 const appointments=readFileSync(new URL('../src/SalesAppointments.jsx',import.meta.url),'utf8');
 const appointmentSql=readFileSync(new URL('../supabase/migrations/2026092901_sales_appointments.sql',import.meta.url),'utf8');
 const kiotLeaveTest=readFileSync(new URL('../api/leave/kiot-sync-test.js',import.meta.url),'utf8');
+const weeklyRestSql=readFileSync(new URL('../supabase/migrations/2026110901_weekly_rest_changes.sql',import.meta.url),'utf8');
+const weeklyRobot=readFileSync(new URL('../ops/kiot-robot/weekly-rest.cjs',import.meta.url),'utf8');
 assert.doesNotMatch(app,/Báo cáo công việc/,'Menu báo cáo công việc phải được gộp vào Báo cáo');
 const reportRoute=app.match(/base==='Báo cáo'&&<>(.*?)<\/\>}/)?.[1]||'';
 assert.match(reportRoute,/<Reports/,'Báo cáo phải chứa báo cáo CRM');
@@ -41,4 +43,11 @@ assert.doesNotMatch(ui,/kiot-sync-test|previewKiot|Test Kiot|CHẾ ĐỘ TEST/,'
 assert.match(kiotLeaveTest,/will_write_to_kiot:\s*false/,'Endpoint test không được phép ghi Kiot');
 assert.doesNotMatch(kiotLeaveTest,/kiot(Post|Put|Delete)/,'Endpoint test chỉ được đọc danh mục Kiot');
 assert.match(kiotLeaveTest,/akc-leave-kiot-dry-run/,'Thiếu kết nối n8n dry-run cho đơn nghỉ một ngày');
+assert.match(ui,/submit_weekly_rest_change/,'Thiếu form gửi yêu cầu đổi ngày nghỉ tuần');
+assert.match(ui,/decide_weekly_rest_change/,'Thiếu thao tác Admin duyệt đổi ngày nghỉ tuần');
+assert.match(weeklyRestSql,/akc_profile_role\(\) is distinct from 'admin'/,'Chỉ Admin được duyệt đổi ngày nghỉ tuần');
+assert.match(weeklyRestSql,/abs\(new_rest_date-old_rest_date\)<=7/,'Ngày đổi nghỉ phải cách nhau không quá 7 ngày');
+assert.doesNotMatch(weeklyRestSql,/paid_days|unpaid_days|leave_balances/,'Đổi nghỉ tuần không được tác động số ngày phép');
+assert.ok(weeklyRobot.indexOf('addShift(page,job,shift,job.old_rest_date)')<weeklyRobot.indexOf('removeShift(page,job,shift,job.new_rest_date)'),'Robot phải thêm ca ngày cũ trước khi gỡ ca ngày mới');
+assert.match(weeklyRobot,/Ngày muốn nghỉ đã có giờ vào\/ra/,'Robot phải chặn ngày đã có chấm công');
 console.log('PASS: operations routes, query bounds and leave transaction guards');

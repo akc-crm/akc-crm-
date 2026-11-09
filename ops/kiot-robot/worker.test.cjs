@@ -1,6 +1,6 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
-const {main,validateJob}=require('./worker.cjs');
+const {main,validateJob,validateWeeklyRestJob}=require('./worker.cjs');
 const {recordedStatus}=require('./attendance.cjs');
 const {employeePattern,optionPattern,assertRecordIdentity}=require('./attendance.cjs');
 test('attendance name matching accepts case and spacing without partial names',()=>{
@@ -26,6 +26,9 @@ const config={crm_url:'https://crm.kickfits.info',worker_key:'x'.repeat(64),writ
 const job={id:'job',employee_id:'staff',branch_id:'branch',leave_status:'Đã duyệt',
   employee:{id:'staff',full_name:'Vũ Đức Cường',kiot_employee_id:'123'},branch:{id:'branch'},
   work_date:'2026-10-08',attendance_type:'Nghỉ phép hưởng lương'};
+const weeklyJob={id:'weekly-job',job_type:'weekly_rest_change',employee_id:'staff',branch_id:'branch',change_status:'Đã duyệt',
+  employee:{id:'staff',full_name:'Vũ Đức Cường',kiot_employee_id:'123'},branch:{id:'branch'},
+  old_rest_date:'2026-11-15',new_rest_date:'2026-11-20'};
 test('empty queue never launches a browser',async()=>{
   let launched=false;
   await main(config,'run',{api:async()=>({jobs:[]}),sync:async()=>{launched=true;}});
@@ -55,6 +58,19 @@ test('save/readback uncertainty is reported as failure, not success',async()=>{
 test('unapproved or mismatched identity never reaches browser',()=>{
   assert.throws(()=>validateJob({...job,leave_status:'Từ chối'},config));
   assert.throws(()=>validateJob({...job,employee:{id:'other',full_name:'Vũ Đức Cường'}},config));
+});
+test('weekly rest change requires Admin approval, exact identity and dates within seven days',()=>{
+  assert.equal(validateWeeklyRestJob(weeklyJob,config).staffCode,'NV2100338');
+  assert.throws(()=>validateWeeklyRestJob({...weeklyJob,change_status:'Chờ duyệt'},config),/không còn được duyệt/);
+  assert.throws(()=>validateWeeklyRestJob({...weeklyJob,new_rest_date:'2026-11-30'},config),/không quá 7 ngày/);
+  assert.throws(()=>validateWeeklyRestJob({...weeklyJob,employee:{id:'other',full_name:'Vũ Đức Cường'}},config),/đối chiếu/);
+});
+test('weekly rest jobs use the schedule adapter and report their job type',async()=>{
+  const calls=[];let attendanceCalled=false,weeklyCalled=false;
+  await main(config,'run',{api:async(c,method,body)=>{calls.push({method,body});return method==='POST'?{jobs:[weeklyJob]}:{};},
+    sync:async()=>{attendanceCalled=true;},weeklySync:async candidate=>{weeklyCalled=true;assert.equal(candidate.old_rest_date,'2026-11-15');return {outcome:'shift_moved_and_verified'};}});
+  assert.equal(attendanceCalled,false);assert.equal(weeklyCalled,true);
+  assert.equal(calls[1].body.job_type,'weekly_rest_change');assert.equal(calls[1].body.success,true);
 });
 test('status label is read from heading, not form options',()=>{
   assert.equal(recordedStatus('Chấm công\nNV2100338\nChưa chấm công\nThời gian\nNghỉ phép hưởng lương\nNghỉ không lương'),'Chưa chấm công');
@@ -107,7 +123,7 @@ test('setup entry point exports resolver before loading worker',()=>{
   const fs=require('node:fs'),path=require('node:path'),os=require('node:os');
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'akc-setup-import-'));
   try {
-    for(const file of ['setup.cjs','worker.cjs','attendance.cjs']) fs.copyFileSync(path.join(__dirname,file),path.join(dir,file));
+    for(const file of ['setup.cjs','worker.cjs','attendance.cjs','weekly-rest.cjs']) fs.copyFileSync(path.join(__dirname,file),path.join(dir,file));
     const child=require('node:child_process').spawnSync(process.execPath,[path.join(dir,'setup.cjs')],{encoding:'utf8',timeout:10000});
     assert.equal(child.status,1);
     assert.match(child.stderr,/ENOENT/);
