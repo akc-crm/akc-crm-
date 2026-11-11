@@ -10,6 +10,7 @@ const kiotLeaveTest=readFileSync(new URL('../api/leave/kiot-sync-test.js',import
 const weeklyRestSql=readFileSync(new URL('../supabase/migrations/2026110901_weekly_rest_changes.sql',import.meta.url),'utf8');
 const weeklyRobot=readFileSync(new URL('../ops/kiot-robot/weekly-rest.cjs',import.meta.url),'utf8');
 const robotInstaller=readFileSync(new URL('../ops/kiot-robot/install.sh',import.meta.url),'utf8');
+const compensationSql=readFileSync(new URL('../supabase/migrations/2026111101_salary_commission_proposals.sql',import.meta.url),'utf8');
 assert.doesNotMatch(app,/Báo cáo công việc/,'Menu báo cáo công việc phải được gộp vào Báo cáo');
 const reportRoute=app.match(/base==='Báo cáo'&&<>(.*?)<\/\>}/)?.[1]||'';
 assert.match(reportRoute,/<Reports/,'Báo cáo phải chứa báo cáo CRM');
@@ -52,4 +53,12 @@ assert.doesNotMatch(weeklyRestSql,/paid_days|unpaid_days|leave_balances/,'Đổi
 assert.ok(weeklyRobot.indexOf('addShift(page,job,shift,job.old_rest_date)')<weeklyRobot.indexOf('removeShift(page,job,shift,job.new_rest_date)'),'Robot phải thêm ca ngày cũ trước khi gỡ ca ngày mới');
 assert.match(weeklyRobot,/Ngày muốn nghỉ đã có giờ vào\/ra/,'Robot phải chặn ngày đã có chấm công');
 assert.match(robotInstaller,/worker\.cjs attendance\.cjs weekly-rest\.cjs setup\.cjs run\.sh/,'Bộ cài phải triển khai adapter đổi ngày nghỉ tuần');
+assert.match(ui,/Đề xuất tăng lương/,'Thiếu loại đề xuất tăng lương');
+assert.match(ui,/Đề xuất hỗ trợ hoa hồng/,'Thiếu loại đề xuất hỗ trợ hoa hồng');
+assert.match(ui,/\[5,10,15,20,23,26\]/,'Thiếu các mức hoa hồng cố định');
+assert.match(ui,/current_salary,proposed_salary,commission_percent/,'Danh sách đề xuất phải tải đủ dữ liệu lương và hoa hồng');
+assert.match(compensationSql,/proposed_salary>current_salary/,'Lương đề xuất phải lớn hơn lương hiện tại');
+assert.match(compensationSql,/commission_percent in \(5,10,15,20,23,26\)/,'Cơ sở dữ liệu phải giới hạn mức hoa hồng');
+assert.match(compensationSql,/guard_internal_request_personnel_target/,'Thiếu khóa nhân sự theo cơ sở');
+assert.doesNotMatch(compensationSql,/drop table|truncate table|delete from/i);
 console.log('PASS: operations routes, query bounds and leave transaction guards');
